@@ -18,19 +18,19 @@ class Environment():
             self.nRows = 5
             self.nCols = 5
             self.nS = self.nRows*self.nCols
-            self.nA = 4
+            self.nA = 5 # adding the action NOOP
             self.nO = 4 # number of ostacle on the grid
-            self.allowed_actions = np.array([[0,1,0,1],[0,1,1,1],[0,1,1,1],[0,1,1,1],[0,1,1,0],
-                                             [1,1,0,1],[0,0,0,0],[0,0,0,0],[1,1,1,1],[1,1,1,0],
-                                             [1,1,0,1],[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,0],
-                                             [1,1,0,1],[1,1,1,1],[1,1,1,1],[0,0,0,0],[1,1,1,0],
-                                             [1,0,0,1],[0,0,0,0],[1,0,1,1],[1,0,1,1],[1,0,1,0]])
+            self.allowed_actions = np.array([[0,1,0,1,1],[0,1,1,1,1],[0,1,1,1,1],[0,1,1,1,1],[0,1,1,0,1],
+                                             [1,1,0,1,1],[0,0,0,0,0],[0,0,0,0,0],[1,1,1,1,1],[1,1,1,0,1],
+                                             [1,1,0,1,1],[1,1,1,1,1],[1,1,1,1,1],[1,1,1,1,1],[1,1,1,0,1],
+                                             [1,1,0,1,1],[1,1,1,1,1],[1,1,1,1,1],[0,0,0,0,0],[1,1,1,0,1],
+                                             [1,0,0,1,1],[0,0,0,0,0],[1,0,1,1,1],[1,0,1,1,1],[1,0,1,0,1]])
             # here the reward given for reaching the target is not maximum, because we try to give the best one when the arget is reached together
-            self.R = np.array([[0,-0.1,0,-0.1],[0,-1,-0.1,-0.1],[0,-1,-0.1,-0.1],[0,-0.1,-0.1,-0.1],[0,-0.1,-0.1,0],
-                                [-0.1,-0.1,0,-1],[0,0,0,0],[0,0,0,0],[-0.1,-0.1,-1,-0.1],[-0.1,-0.1,-0.1,0],
-                                [-0.1,-0.1,0,-0.1],[-1,-0.1,-0.1,-0.1],[-1,0.5,-0.1,-0.1],[-0.1,-1,-0.1,-0.1],[-0.1,-0.1,-0.1,0],
-                                [-0.1,-0.1,0,-0.1],[-0.1,-1,-0.1,0.5],[0,0,0,0],[0,0,0,0],[-0.1,-0.1,-1,0],
-                                [-0.1,0,0,-1],[0,0,0,0],[0,0,0,0],[-1,0,0.5,-0.1],[-0.1,0,-0.1,0]])
+            self.R = np.array([[0,-0.1,0,-0.1,-0.1],[0,-1,-0.1,-0.1,-0.1],[0,-1,-0.1,-0.1,-0.1],[0,-0.1,-0.1,-0.1,-0.1],[0,-0.1,-0.1,0,-0.1],
+                                [-0.1,-0.1,0,-1,-0.1],[0,0,0,0,0],[0,0,0,0,0],[-0.1,-0.1,-1,-0.1,-0.1],[-0.1,-0.1,-0.1,0,-0.1],
+                                [-0.1,-0.1,0,-0.1,-0.1],[-1,-0.1,-0.1,-0.1,-0.1],[-1,0.5,-0.1,-0.1,-0.1],[-0.1,-1,-0.1,-0.1,-0.1],[-0.1,-0.1,-0.1,0,-0.1],
+                                [-0.1,-0.1,0,-0.1,-0.1],[-0.1,-1,-0.1,0.5,-0.1],[0,0,0,0,0],[0,0,0,0,0],[-0.1,-0.1,-1,0,-0.1],
+                                [-0.1,0,0,-1,-0.1],[0,0,0,0,0],[0,0,0,0,0],[-1,0,0.5,-0.1,-0.1],[-0.1,0,-0.1,0,-0.1]])
             self.actual_states = self.nS - self.nO
             mu = []
             for i in range(0,self.actual_states):
@@ -66,6 +66,9 @@ class Environment():
             agent.set_position(s_prime)
         elif a == 3:
             s_prime = s + 1
+            agent.set_position(s_prime)
+        elif a == 4:
+            s_prime = s
             agent.set_position(s_prime)
         grid_array = self.grid.flatten()
         if grid_array[s_prime] == 1 or grid_array[s] == 3 :
@@ -109,7 +112,7 @@ def multi_agent_qlearning():
     env1._seed(10)
     env2._seed(13)
     # learning parameters
-    M = 250
+    M = 600
     m = 1
     k = 7 # length of the episode
     beta = 0.5
@@ -118,7 +121,7 @@ def multi_agent_qlearning():
     Q2 = np.zeros((env2.nS,env2.nA))
 
     while m<M:
-        if m == 249:
+        if m == 599:
             print('ehi')
         print('iteretion n.',m)
         eps = (1 - m/M) ** 2
@@ -150,10 +153,11 @@ def multi_agent_qlearning():
                     s_prime1 = s1
                     reward1 = -1
             # check if both agents reach a target in the next iteration:
-            if (s_prime1 == 17 or s_prime1 == 22) and (s_prime2 == 17 or s_prime2== 22):
-                print('Target reached together!')
-                reward1 = 1.0
-                reward2 = 1.0
+            if (s_prime1 != s1) and (s_prime2 != s2):
+                if (s_prime1 == 17 or s_prime1 == 22) and (s_prime2 == 17 or s_prime2== 22):
+                    print('Target reached together!')
+                    reward1 = 1.0
+                    reward2 = 1.0
             # Q-learning update
             Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * (reward1 + env1.gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
             Q2[s2, a2] = Q2[s2, a2] + np.min([beta/xi2,1]) * (reward2 + env2.gamma * np.max(Q2[s_prime2, :]) - Q2[s2, a2])
