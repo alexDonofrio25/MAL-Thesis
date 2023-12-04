@@ -178,6 +178,9 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
     return Q1,Q2, episodes_reward
 
 q1,q2,ep_rewards = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.5,gamma=0.9)
-plt.figure(1)
-plt.plot(ep_rewards[0,:])
+fig, ax= plt.subplots()
+ax.plot(ep_rewards[0,:])
+ax.plot(ep_rewards[1,:])
+ax.set_xlabel('episode')
+ax.set_ylabel('reward')
 plt.show()
