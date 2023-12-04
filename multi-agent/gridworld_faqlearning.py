@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 class Agent():
 
@@ -38,7 +39,6 @@ class Environment():
                 else:
                     mu.append(0.0)
             self.mu = mu
-            self.gamma = 0.9
             self.grid = np.array([[2,0,0,0,2],
                          [0,1,1,0,0],
                          [0,0,0,0,0],
@@ -98,7 +98,7 @@ def eps_greedy(s, Q, eps, allowed_actions):
     xi = 1 - (mult-1)*eps
   return a, xi
 
-def multi_agent_qlearning():
+def multi_agent_qlearning(epochs, ep_length, beta, gamma):
     spiky = Agent('Spiky',0)
     roby = Agent('Roby',4)
     collisions = []
@@ -108,15 +108,17 @@ def multi_agent_qlearning():
     env1._seed(10)
     env2._seed(13)
     # learning parameters
-    M = 200
+    M = epochs
     m = 1
-    k = 7 # length of the episode
-    beta = 0.5
+    k = ep_length # length of the episode
     # initial Q function
     Q1 = np.zeros((env1.nS,env1.nA))
     Q2 = np.zeros((env2.nS,env2.nA))
 
-    while m<M:
+    # Keeps track of useful statistics
+    episodes_reward = np.zeros((2,epochs))
+
+    while m < M:
         print('iteretion n.',m)
         eps = (1 - m/M) ** 2
         # initial state and action
@@ -146,9 +148,12 @@ def multi_agent_qlearning():
                 else:
                     s_prime1 = s1
                     reward1 = -1
+            # Update stats
+            episodes_reward[0,m] += reward1
+            episodes_reward[1,m] += reward2
             # Q-learning update
-            Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * (reward1 + env1.gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
-            Q2[s2, a2] = Q2[s2, a2] + np.min([beta/xi2,1]) * (reward2 + env2.gamma * np.max(Q2[s_prime2, :]) - Q2[s2, a2])
+            Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
+            Q2[s2, a2] = Q2[s2, a2] + np.min([beta/xi2,1]) * (reward2 + gamma * np.max(Q2[s_prime2, :]) - Q2[s2, a2])
             # policy improvement step
             a_prime1,xi1 = eps_greedy(s_prime1,Q1,eps, env1.allowed_actions)
             a_prime2,xi2 = eps_greedy(s_prime2,Q2,eps, env2.allowed_actions)
@@ -170,6 +175,9 @@ def multi_agent_qlearning():
         print(Q2)
         print('----------------------------------------------')
         print(collisions)
-    return Q1,Q2
+    return Q1,Q2, episodes_reward
 
-q1,q2 = multi_agent_qlearning()
+q1,q2,ep_rewards = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.5,gamma=0.9)
+plt.figure(1)
+plt.plot(ep_rewards[0,:])
+plt.show()
