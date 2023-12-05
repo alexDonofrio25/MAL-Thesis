@@ -121,6 +121,7 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
     while m < M:
         print('iteretion n.',m)
         eps = (1 - m/M) ** 2
+        alpha = (1 - m/M)
         # initial state and action
         s1 = spiky.get_position()
         s2 = roby.get_position()
@@ -152,8 +153,8 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
             episodes_reward[0,m] += reward1
             episodes_reward[1,m] += reward2
             # Q-learning update
-            Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
-            Q2[s2, a2] = Q2[s2, a2] + np.min([beta/xi2,1]) * (reward2 + gamma * np.max(Q2[s_prime2, :]) - Q2[s2, a2])
+            Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * alpha * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
+            Q2[s2, a2] = Q2[s2, a2] + np.min([beta/xi2,1]) * alpha * (reward2 + gamma * np.max(Q2[s_prime2, :]) - Q2[s2, a2])
             # policy improvement step
             a_prime1,xi1 = eps_greedy(s_prime1,Q1,eps, env1.allowed_actions)
             a_prime2,xi2 = eps_greedy(s_prime2,Q2,eps, env2.allowed_actions)
@@ -177,7 +178,7 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
         print(collisions)
     return Q1,Q2, episodes_reward
 
-q1,q2,ep_rewards = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.5,gamma=0.9)
+q1,q2,ep_rewards = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.8,gamma=0.9)
 fig, ax= plt.subplots()
 ax.plot(ep_rewards[0,:])
 ax.plot(ep_rewards[1,:])
