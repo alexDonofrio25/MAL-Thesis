@@ -105,8 +105,10 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
     env1 = Environment()
     env2 = Environment()
 
-    env1._seed(10)
-    env2._seed(13)
+    #env1._seed(10)
+    #env2._seed(13)
+    env1._seed(43)
+    env2._seed(11)
     # learning parameters
     M = epochs
     m = 1
@@ -117,11 +119,15 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
 
     # Keeps track of useful statistics
     episodes_reward = np.zeros((2,epochs))
+    episodes_means = np.zeros((2,epochs)) # reward mean per episode
+    episodes_std = np.zeros((2,epochs)) # reward std deviation per episode
 
     while m < M:
+        rewards = np.zeros((2,k))
         print('iteretion n.',m)
         eps = (1 - m/M) ** 2
         alpha = (1 - m/M)
+        #alpha = 0.1
         # initial state and action
         s1 = spiky.get_position()
         s2 = roby.get_position()
@@ -149,7 +155,9 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
                 else:
                     s_prime1 = s1
                     reward1 = -1
-            # Update stats
+            # Save stats
+            rewards[0,i] = reward1
+            rewards[1,i] = reward2
             episodes_reward[0,m] += reward1
             episodes_reward[1,m] += reward2
             # Q-learning update
@@ -164,8 +172,15 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
             a2 = a_prime2
             if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                 break
-        # next iteration
 
+        # update stats
+        episodes_reward[0,m] = np.sum(rewards[0,:])
+        episodes_reward[1,m] = np.sum(rewards[1,:])
+        episodes_means[0,m] = np.mean(rewards[0,:])
+        episodes_means[1,m] = np.mean(rewards[1,:])
+        episodes_std[0,m] = np.std(rewards[0,:])
+        episodes_std[1,m] = np.std(rewards[1,:])
+        # next iteration
         m = m + 1
         env1.comeback(spiky,0)
         env2.comeback(roby,4)
@@ -176,12 +191,18 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
         print(Q2)
         print('----------------------------------------------')
         print(collisions)
-    return Q1,Q2, episodes_reward
+    return Q1,Q2, episodes_reward, episodes_means, episodes_std
 
-q1,q2,ep_rewards = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.8,gamma=0.9)
-fig, ax= plt.subplots()
-ax.plot(ep_rewards[0,:])
-ax.plot(ep_rewards[1,:])
-ax.set_xlabel('episode')
-ax.set_ylabel('reward')
+q1,q2,ep_rewards,ep_means,ep_std = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.8,gamma=0.9)
+fig, (ax1,ax2)= plt.subplots(ncols=2,figsize=(15, 5))
+#ax1.plot(ep_rewards[0,:])
+#ax2.plot(ep_rewards[1,:])
+ax1.fill_between(range(len(ep_means[0,:])), ep_means[0,:], ep_std[0,:], color='red', alpha=0.3, label='Intervallo di Confidenza al 95%')
+ax2.fill_between(range(len(ep_means[1,:])), ep_means[1,:], ep_std[1,:], color='blue', alpha=0.3, label='Intervallo di Confidenza al 95%')
+#ax.fill_between(ep_means[1,:],ep_std[1,:])
+ax1.set_xlabel('episode')
+ax2.set_xlabel('episode')
+ax1.set_ylabel('reward')
+ax2.set_ylabel('reward')
+#fig.savefig('./multi-agent_plots/cumulated_reward.pdf', bbox_inches = 'tight')
 plt.show()
