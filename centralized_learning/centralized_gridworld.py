@@ -21,51 +21,71 @@ class Environment():
             self.nA = 4**2
             self.nO = 4 # number of ostacle on the grid
             self.gamma = 0.9
+            self.allowed_actions = np.array([[0,1,0,1],[0,1,1,1],[0,1,1,1],[0,1,1,1],[0,1,1,0],
+                                             [1,1,0,1],[0,0,0,0],[0,0,0,0],[1,1,1,1],[1,1,1,0],
+                                             [1,1,0,1],[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,0],
+                                             [1,1,0,1],[1,1,1,1],[1,1,1,1],[0,0,0,0],[1,1,1,0],
+                                             [1,0,0,1],[0,0,0,0],[1,0,1,1],[1,0,1,1],[1,0,1,0]])
+            self.R = np.array([[0,-0.5,0,-0.5],[0,-1,-0.5,-0.5],[0,-1,-0.5,-0.5],[0,-0.5,-0.5,-0.5],[0,-0.5,-0.5,0],
+                                [-0.5,-0.5,0,-1],[0,0,0,0],[0,0,0,0],[-0.5,-0.5,-1,-0.5],[-0.5,-0.5,-0.5,0],
+                                [-0.5,-0.5,0,-0.5],[-1,-0.5,-0.5,-0.1],[-1,2,-0.5,-0.5],[-0.5,-1,-0.5,-0.5],[-0.5,-0.5,-0.5,0],
+                                [-0.5,-0.5,0,-0.5],[-0.5,-1,-0.5,2],[0,0,0,0],[0,0,0,0],[-0.5,-0.5,-1,0],
+                                [-0.5,0,0,-1],[0,0,0,0],[0,0,0,0],[-1,0,2,-0.5],[-0.5,0,-0.5,0]])
             self.grid = np.array([[2,0,0,0,2],
                          [0,1,1,0,0],
                          [0,0,0,0,0],
                          [0,0,3,1,0],
                          [0,1,3,0,0]])
 
-    def tuple_to_state(tuple):
-        s = tuple[0]*25 + tuple[1]
-        return s
-
-    def coupled_action(a):
-        action_pair = [int(a/4),int(a%4)]
-        return action_pair
 
 
-    def transition_model(self,agent,a):
+    def reward_generator(self,s1,s2,a1,a2):
+        r1 = self.R[s1,a1]
+        r2 = self.R[s2,a2]
+        reward = r1+r2
+        return reward
 
+    def transition_model(self,agents,a):
         # action encoding:
         # 0: up
         # 1: down
         # 2: left
         # 3: right
-        pos = agent.get_position()
+        collision_flag = False
+        pos = agents.get_position()
         s = self.tuple_to_state(pos)
         actions = self.coupled_action(a)
-        pos_prime = [0,0]
+        inst_rew = self.reward_generator(pos[0],pos[1],actions[0],actions[1])
         grid_list = self.grid.flatten()
+        pos_prime = np.zeros(2)
         if actions[0] == 0:
-            if (pos[0] - self.nRows) >= 0:
-                pos_prime[0] = pos[0] - self.nRows
-
+            pos_prime[0] = pos[0] - self.nRows
         elif actions[0] == 1:
-            s_prime = pos[0] + self.nRows
-            agent.set_position(s_prime)
+            pos_prime[0] = pos[0] + self.nRows
         elif actions[0] == 2:
-            s_prime = pos[0] - 1
-            agent.set_position(s_prime)
+            pos_prime[0] = pos[0] - 1
         elif actions[0] == 3:
-            s_prime = pos[0] + 1
-            agent.set_position(s_prime)
+            pos_prime[0] = pos[0] + 1
+        if actions[1] == 0:
+            pos_prime[1] = pos[1] - self.nRows
+        elif actions[1] == 1:
+            pos_prime[1] = pos[1] + self.nRows
+        elif actions[1] == 2:
+            pos_prime[1] = pos[1] - 1
+        elif actions[1] == 3:
+            pos_prime[1] = pos[1] + 1
         grid_array = self.grid.flatten()
-        if grid_array[s_prime] == 1 or grid_array[s] == 3 :
-            s_prime = s
-            agent.set_position(s_prime)
-        return s_prime,inst_rew
+        if grid_array[pos_prime[0]] == 1 or grid_array[pos[0]] == 3 :
+            pos_prime[0] = pos[0]
+        if grid_array[pos_prime[1]] == 1 or grid_array[pos[1]] == 3 :
+            pos_prime[1] = pos[1]
+        agents.set_position(pos_prime)
+        if pos_prime[0] == pos_prime[1]:
+            collision_flag = True
+            pos_prime[1] = pos[1]
+            inst_rew = -1.5
+        s_prime = self.tuple_to_state(pos_prime)
+        return s_prime,inst_rew, collision_flag
 
     def tuple_to_state(self,t):
         s = t[0]*self.nCols + t[1]
@@ -78,14 +98,79 @@ class Environment():
     def _seed(self, seed):
         np.random.seed(seed)
 
+def tuple_to_state(tuple):
+        s = tuple[0]*25 + tuple[1]
+        return s
+
+def coupled_action(a):
+    action_pair = [int(a/4),int(a%4)]
+    return action_pair
+
+def tuple_to_action(tuple):
+    action = tuple[0]*4 + tuple[1]
+    return action
+
 # definition of the greedy policy for our model
-def eps_greedy(s, Q, eps):
+def eps_greedy(s1, s2, Q, eps, allowed_actions):
   if np.random.rand() <= eps:
-    actions = np.where(allowed_actions[s])
-    actions = actions[0] # just keep the indices of the allowed actions
-    a = np.random.choice(actions, p=(np.ones(len(actions)) / len(actions)))
+    actions1 = np.where(allowed_actions[s1])
+    actions2 = np.where(allowed_actions[s2])
+    actions1 = actions1[0] # just keep the indices of the allowed actions
+    actions2 = actions2[0]
+    a1 = np.random.choice(actions1, p=(np.ones(len(actions1)) / len(actions1)))
+    a2 = np.random.choice(actions2, p=(np.ones(len(actions2)) / len(actions2)))
+    a = tuple_to_action([a1,a2])
   else:
+    s = tuple_to_state([s1,s2])
     Q_s = Q[s, :].copy()
-    Q_s[allowed_actions[s] == 0] = - np.inf
     a = np.argmax(Q_s)
   return a
+
+def multi_agent_qlearning(epochs, ep_length, gamma):
+    agents = Agents('Spiky','Roby',[0,4])
+    collisions = []
+
+    env1 = Environment()
+
+    env1._seed(10)
+
+    # learning parameters
+    M = epochs
+    m = 1
+    k = ep_length # length of the episode
+    # initial Q function
+    Q = np.zeros((env1.nS,env1.nA))
+
+    # Keeps track of useful statistics
+    episodes_reward = np.zeros((epochs))
+
+    while m<M:
+        print('iteretion n.',m)
+        alpha = (1 - m/M)
+        eps = (1 - m/M) ** 2
+        # initial state and action
+        pos = agents.get_position()
+        s = tuple_to_state(pos)
+        a = eps_greedy(pos[0],pos[1], Q, eps, env1.allowed_actions)
+        # execute an entire episode of two actions
+        for i in range(0,k):
+            s_prime, reward, collision = env1.transition_model(agents,a)
+            if collision:
+                collisions.append(m)
+                break
+            # policy improvement step
+            a_prime = eps_greedy(agents.get_position()[0],agents.get_position()[1],Q,eps, env1.allowed_actions)
+            # Update stats
+            episodes_reward[m] += reward
+            # Q-learning update
+            Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
+            s = s_prime
+            a = a_prime
+        # next iteration
+        m = m + 1
+        env1.comeback(spiky,[0,4])
+        print('Q matrix updated:')
+        print(Q)
+        print('----------------------------------------------')
+        print(collisions)
+    return Q,episodes_reward
