@@ -98,7 +98,7 @@ def eps_greedy(s, Q, eps, allowed_actions):
     xi = 1 - (mult-1)*eps
   return a, xi
 
-def multi_agent_qlearning(epochs, ep_length, beta, gamma):
+def multi_agent_qlearning(epochs, ep_length, beta, gamma, seed1, seed2):
     spiky = Agent('Spiky',0)
     roby = Agent('Roby',4)
     collisions = []
@@ -107,11 +107,11 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
 
     #env1._seed(10)
     #env2._seed(13)
-    env1._seed(43)
-    env2._seed(11)
+    env1._seed(seed1)
+    env2._seed(seed2)
     # learning parameters
     M = epochs
-    m = 1
+    m = 0
     k = ep_length # length of the episode
     # initial Q function
     Q1 = np.zeros((env1.nS,env1.nA))
@@ -193,16 +193,38 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma):
         print(collisions)
     return Q1,Q2, episodes_reward, episodes_means, episodes_std
 
-q1,q2,ep_rewards,ep_means,ep_std = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.8,gamma=0.9)
-fig, (ax1,ax2)= plt.subplots(ncols=2,figsize=(15, 5))
-#ax1.plot(ep_rewards[0,:])
-#ax2.plot(ep_rewards[1,:])
-ax1.fill_between(range(len(ep_means[0,:])), ep_means[0,:], ep_std[0,:], color='red', alpha=0.3, label='Intervallo di Confidenza al 95%')
-ax2.fill_between(range(len(ep_means[1,:])), ep_means[1,:], ep_std[1,:], color='blue', alpha=0.3, label='Intervallo di Confidenza al 95%')
-#ax.fill_between(ep_means[1,:],ep_std[1,:])
-ax1.set_xlabel('episode')
-ax2.set_xlabel('episode')
-ax1.set_ylabel('reward')
-ax2.set_ylabel('reward')
-#fig.savefig('./multi-agent_plots/cumulated_reward.pdf', bbox_inches = 'tight')
-plt.show()
+def confidency_gaps(n):
+    mean = np.zeros((2,n))
+    std = np.zeros((2,n))
+    for i in range(0,n):
+        # ogni esperimento è eseguito con seed diversi
+        Q1,Q2, ep_reward, ep_mean, ep_std= multi_agent_qlearning(epochs=300, ep_length=8, beta=0.8,gamma=0.9, seed1=i, seed2= i + 3)
+        # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
+        mean[0,i] = np.mean(ep_reward[0,:]) # calcolo la media del reward cumulato nell'esperimento
+        mean[1,i] = np.mean(ep_reward[1,:])
+        std[0,i] = np.std(ep_reward[0,:])/n # calcolo la dv. standard del reward cumulato nell'esperimento
+        std[1,i] = np.std(ep_reward[1,:])/n
+
+    fig, axs = plt.subplots(nrows=1,ncols=2, figsize=(15, 5))
+    axs[0].set_title('Agent 1')
+    axs[1].set_title('Agent 2')
+    axs[0].plot(mean[0,:], color='blue')
+    axs[0].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
+    axs[1].plot(mean[1,:], color='red')
+    axs[1].fill_between(range(0,len(mean[0,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
+    axs[0].set_xlabel('Experiments')
+    axs[1].set_xlabel('Experiments')
+    axs[0].set_ylabel('Rewards')
+    axs[1].set_ylabel('Rewards')
+    plt.show()
+
+
+
+
+
+#q1,q2,ep_rewards,ep_means,ep_std = multi_agent_qlearning(epochs=200,ep_length=7,beta=0.8,gamma=0.9, seed1=12, seed2=15)
+#fig, (ax1,ax2)= plt.subplots(ncols=2,figsize=(15, 5))
+
+
+confidency_gaps(10)
+

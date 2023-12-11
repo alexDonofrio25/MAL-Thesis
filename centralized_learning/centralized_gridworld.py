@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Agents():
 
@@ -17,7 +18,7 @@ class Environment():
     def __init__(self):
             self.nRows = 5
             self.nCols = 5
-            self.nS = self.nRows*self.nCols**2
+            self.nS = (self.nRows*self.nCols)**2
             self.nA = 4**2
             self.nO = 4 # number of ostacle on the grid
             self.gamma = 0.9
@@ -26,11 +27,11 @@ class Environment():
                                              [1,1,0,1],[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,0],
                                              [1,1,0,1],[1,1,1,1],[1,1,1,1],[0,0,0,0],[1,1,1,0],
                                              [1,0,0,1],[0,0,0,0],[1,0,1,1],[1,0,1,1],[1,0,1,0]])
-            self.R = np.array([[0,-0.5,0,-0.5],[0,-1,-0.5,-0.5],[0,-1,-0.5,-0.5],[0,-0.5,-0.5,-0.5],[0,-0.5,-0.5,0],
-                                [-0.5,-0.5,0,-1],[0,0,0,0],[0,0,0,0],[-0.5,-0.5,-1,-0.5],[-0.5,-0.5,-0.5,0],
-                                [-0.5,-0.5,0,-0.5],[-1,-0.5,-0.5,-0.1],[-1,2,-0.5,-0.5],[-0.5,-1,-0.5,-0.5],[-0.5,-0.5,-0.5,0],
-                                [-0.5,-0.5,0,-0.5],[-0.5,-1,-0.5,2],[0,0,0,0],[0,0,0,0],[-0.5,-0.5,-1,0],
-                                [-0.5,0,0,-1],[0,0,0,0],[0,0,0,0],[-1,0,2,-0.5],[-0.5,0,-0.5,0]])
+            self.R = np.array([[0,-0.1,0,-0.1],[0,-1,-0.1,-0.1],[0,-1,-0.1,-0.1],[0,-0.1,-0.1,-0.1],[0,-0.1,-0.1,0],
+                                [-0.1,-0.1,0,-1],[0,0,0,0],[0,0,0,0],[-0.1,-0.1,-1,-0.1],[-0.1,-0.1,-0.1,0],
+                                [-0.1,-0.1,0,-0.1],[-1,-0.1,-0.1,-0.1],[-1,1,-0.1,-0.1],[-0.1,-1,-0.1,-0.1],[-0.1,-0.1,-0.1,0],
+                                [-0.1,-0.1,0,-0.1],[-0.1,-1,-0.1,1],[1,1,1,1],[0,0,0,0],[-0.1,-0.1,-1,0],
+                                [-0.1,0,0,-1],[0,0,0,0],[1,1,1,1],[-1,0,1,-0.1],[-0.1,0,-0.1,0]])
             self.grid = np.array([[2,0,0,0,2],
                          [0,1,1,0,0],
                          [0,0,0,0,0],
@@ -53,11 +54,11 @@ class Environment():
         # 3: right
         collision_flag = False
         pos = agents.get_position()
-        s = self.tuple_to_state(pos)
-        actions = self.coupled_action(a)
+        s = tuple_to_state(pos)
+        actions = coupled_action(a)
         inst_rew = self.reward_generator(pos[0],pos[1],actions[0],actions[1])
         grid_list = self.grid.flatten()
-        pos_prime = np.zeros(2)
+        pos_prime = [0,0]
         if actions[0] == 0:
             pos_prime[0] = pos[0] - self.nRows
         elif actions[0] == 1:
@@ -74,22 +75,20 @@ class Environment():
             pos_prime[1] = pos[1] - 1
         elif actions[1] == 3:
             pos_prime[1] = pos[1] + 1
-        grid_array = self.grid.flatten()
-        if grid_array[pos_prime[0]] == 1 or grid_array[pos[0]] == 3 :
+        if grid_list[pos_prime[0]] == 1 or grid_list[pos[0]] == 3 :
             pos_prime[0] = pos[0]
-        if grid_array[pos_prime[1]] == 1 or grid_array[pos[1]] == 3 :
+        if grid_list[pos_prime[1]] == 1 or grid_list[pos[1]] == 3 :
             pos_prime[1] = pos[1]
         agents.set_position(pos_prime)
         if pos_prime[0] == pos_prime[1]:
             collision_flag = True
-            pos_prime[1] = pos[1]
-            inst_rew = -1.5
-        s_prime = self.tuple_to_state(pos_prime)
+            if pos_prime[1] != pos[1]:
+                pos_prime[1] = pos[1]
+            else:
+                pos_prime[0] = pos[0]
+            inst_rew = -2
+        s_prime = tuple_to_state(pos_prime)
         return s_prime,inst_rew, collision_flag
-
-    def tuple_to_state(self,t):
-        s = t[0]*self.nCols + t[1]
-        return s
 
     def comeback(self, agent, pos):
         agent.set_position(pos)
@@ -122,17 +121,26 @@ def eps_greedy(s1, s2, Q, eps, allowed_actions):
     a = tuple_to_action([a1,a2])
   else:
     s = tuple_to_state([s1,s2])
+    actions1 = np.where(allowed_actions[s1])[0]
+    actions2 = np.where(allowed_actions[s2])[0]
     Q_s = Q[s, :].copy()
+    i = 0
+    for qs in Q_s:
+        s_prime1 = int(i/4)
+        s_prime2 = int(i%4)
+        if (s_prime1 not in actions1) or (s_prime2 not in actions2):
+            Q_s[i] = -np.inf
+        i+=1
     a = np.argmax(Q_s)
   return a
 
-def multi_agent_qlearning(epochs, ep_length, gamma):
+def multi_agent_qlearning(epochs, ep_length, gamma, seed):
     agents = Agents('Spiky','Roby',[0,4])
     collisions = []
 
     env1 = Environment()
 
-    env1._seed(10)
+    env1._seed(seed)
 
     # learning parameters
     M = epochs
@@ -145,6 +153,8 @@ def multi_agent_qlearning(epochs, ep_length, gamma):
     episodes_reward = np.zeros((epochs))
 
     while m<M:
+        if m == 199:
+            print('x')
         print('iteretion n.',m)
         alpha = (1 - m/M)
         eps = (1 - m/M) ** 2
@@ -158,6 +168,8 @@ def multi_agent_qlearning(epochs, ep_length, gamma):
             if collision:
                 collisions.append(m)
                 break
+            if s_prime == 447 or s_prime == 567:
+                break
             # policy improvement step
             a_prime = eps_greedy(agents.get_position()[0],agents.get_position()[1],Q,eps, env1.allowed_actions)
             # Update stats
@@ -168,9 +180,38 @@ def multi_agent_qlearning(epochs, ep_length, gamma):
             a = a_prime
         # next iteration
         m = m + 1
-        env1.comeback(spiky,[0,4])
+        env1.comeback(agents,[0,4])
         print('Q matrix updated:')
         print(Q)
         print('----------------------------------------------')
-        print(collisions)
+    print(collisions)
     return Q,episodes_reward
+
+def confidency_gaps(n):
+    mean = np.zeros(n)
+    std = np.zeros(n)
+    for i in range(0,n):
+        # ogni esperimento è eseguito con seed diversi
+        Q, ep_reward= multi_agent_qlearning(epochs=200, ep_length=8, gamma=0.9, seed=i)
+        # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
+        mean[i] = np.mean(ep_reward) # calcolo la media del reward cumulato nell'esperimento
+        std[i] = np.std(ep_reward)/n # calcolo la dv. standard del reward cumulato nell'esperimento
+
+    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(15, 5))
+    ax.set_title('Agents')
+    ax.plot(mean, color='blue')
+    ax.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .3)
+    ax.set_xlabel('Experiments')
+    ax.set_ylabel('Rewards')
+    ax.set_xticks(np.arange(0,n,1))
+    plt.show()
+
+#Q, ep_reward = multi_agent_qlearning(epochs=200,ep_length=8,gamma=0.9, seed=43)
+#print(ep_reward[199])
+fig, ax = plt.subplots()
+#ax.plot(ep_reward)
+ax.set_xlabel('episode')
+ax.set_ylabel('reward')
+#plt.show()
+
+confidency_gaps(10)
