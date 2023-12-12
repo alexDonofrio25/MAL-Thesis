@@ -194,10 +194,10 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma, seed1, seed2):
     return Q1,Q2, episodes_reward, episodes_means, episodes_std
 
 def confidency_gaps(n):
-    rews = np.zeros((n,2,300))
+    rews = np.zeros((n,2,200))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
-        Q1,Q2, ep_reward, ep_mean, ep_std= multi_agent_qlearning(epochs=300, ep_length=8, beta=0.8,gamma=0.9, seed1=i, seed2= i + 3)
+        Q1,Q2, ep_reward, ep_mean, ep_std= multi_agent_qlearning(epochs=200, ep_length=7, beta=0.8,gamma=0.9, seed1=i, seed2= i + 3)
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
         rews[i] = ep_reward
     mean = np.mean(rews, axis = 0)
@@ -214,8 +214,8 @@ def confidency_gaps(n):
     axs[1].set_xlabel('Epochs')
     axs[0].set_ylabel('Rewards')
     axs[1].set_ylabel('Rewards')
-    axs[0].set_xticks(np.arange(0,301,50))
-    axs[1].set_xticks(np.arange(0,301,50))
+    axs[0].set_xticks(np.arange(0,201,50))
+    axs[1].set_xticks(np.arange(0,201,50))
     plt.show()
 
 
@@ -226,5 +226,5 @@ def confidency_gaps(n):
 #fig, (ax1,ax2)= plt.subplots(ncols=2,figsize=(15, 5))
 
 
-confidency_gaps(10)
+confidency_gaps(100)
 

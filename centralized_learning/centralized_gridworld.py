@@ -213,6 +213,6 @@ fig, ax = plt.subplots()
 #ax.plot(ep_reward)
 ax.set_xlabel('episode')
 ax.set_ylabel('reward')
-#plt.show()
+plt.show()
 
 confidency_gaps(100)
