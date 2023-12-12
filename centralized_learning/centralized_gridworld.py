@@ -188,22 +188,23 @@ def multi_agent_qlearning(epochs, ep_length, gamma, seed):
     return Q,episodes_reward
 
 def confidency_gaps(n):
-    mean = np.zeros(n)
-    std = np.zeros(n)
+    rews = np.zeros((n,200))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
         Q, ep_reward= multi_agent_qlearning(epochs=200, ep_length=8, gamma=0.9, seed=i)
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
-        mean[i] = np.mean(ep_reward) # calcolo la media del reward cumulato nell'esperimento
-        std[i] = np.std(ep_reward)/n # calcolo la dv. standard del reward cumulato nell'esperimento
+        rews[i] = ep_reward
+
+    mean = np.mean(rews, axis=0)
+    std = np.std(rews, axis=0)/n
 
     fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(15, 5))
     ax.set_title('Agents')
     ax.plot(mean, color='blue')
     ax.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .3)
-    ax.set_xlabel('Experiments')
+    ax.set_xlabel('Epochs')
     ax.set_ylabel('Rewards')
-    ax.set_xticks(np.arange(0,n,1))
+    ax.set_xticks(np.arange(0,201,50))
     plt.show()
 
 #Q, ep_reward = multi_agent_qlearning(epochs=200,ep_length=8,gamma=0.9, seed=43)
@@ -214,4 +215,4 @@ ax.set_xlabel('episode')
 ax.set_ylabel('reward')
 #plt.show()
 
-confidency_gaps(10)
+confidency_gaps(100)

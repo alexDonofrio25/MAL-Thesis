@@ -171,16 +171,14 @@ fig1, ax1 = plt.subplots()
 #fig1.show()
 
 def confidency_gaps(n):
-    mean = np.zeros((2,n))
-    std = np.zeros((2,n))
+    rews = np.zeros((n, 2, 300))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
         Q1,Q2, ep_reward= multi_agent_qlearning(epochs=300, ep_length=8, gamma=0.9, seed1=i, seed2= i + 3)
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
-        mean[0,i] = np.mean(ep_reward[0,:]) # calcolo la media del reward cumulato nell'esperimento
-        mean[1,i] = np.mean(ep_reward[1,:])
-        std[0,i] = np.std(ep_reward[0,:])/n # calcolo la dv. standard del reward cumulato nell'esperimento
-        std[1,i] = np.std(ep_reward[1,:])/n
+        rews[i] = ep_reward
+    mean = np.mean(rews, axis=0)
+    std = np.std(rews, axis=0)/n
 
     fig, axs = plt.subplots(nrows=1,ncols=2, figsize=(15, 5))
     axs[0].set_title('Agent 1')
@@ -189,12 +187,12 @@ def confidency_gaps(n):
     axs[0].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
     axs[1].plot(mean[1,:], color='red')
     axs[1].fill_between(range(0,len(mean[0,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
-    axs[0].set_xlabel('Experiments')
-    axs[1].set_xlabel('Experiments')
+    axs[0].set_xlabel('Epochs')
+    axs[1].set_xlabel('Epochs')
     axs[0].set_ylabel('Rewards')
     axs[1].set_ylabel('Rewards')
-    axs[0].set_xticks(np.arange(0,n+1,5))
-    axs[1].set_xticks(np.arange(0,n+1,5))
+    axs[0].set_xticks(np.arange(0,301,50))
+    axs[1].set_xticks(np.arange(0,301,50))
     plt.show()
 
 confidency_gaps(10)
