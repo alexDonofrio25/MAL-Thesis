@@ -144,7 +144,7 @@ def multi_agent_qlearning(epochs, ep_length, gamma, seed):
 
     # learning parameters
     M = epochs
-    m = 1
+    m = 0
     k = ep_length # length of the episode
     # initial Q function
     Q = np.zeros((env1.nS,env1.nA))
@@ -198,7 +198,7 @@ def confidency_gaps(n):
     mean = np.mean(rews, axis=0)
     std = np.std(rews, axis=0)/n
 
-    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(15, 5))
+    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(10, 5))
     ax.set_title('Agents')
     ax.plot(mean, color='blue')
     ax.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .3)
@@ -213,6 +213,6 @@ fig, ax = plt.subplots()
 #ax.plot(ep_reward)
 ax.set_xlabel('episode')
 ax.set_ylabel('reward')
-plt.show()
+#plt.show()
 
-confidency_gaps(100)
+confidency_gaps(200)

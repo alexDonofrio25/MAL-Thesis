@@ -119,12 +119,10 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma, seed1, seed2):
 
     # Keeps track of useful statistics
     episodes_reward = np.zeros((2,epochs))
-    episodes_means = np.zeros((2,epochs)) # reward mean per episode
-    episodes_std = np.zeros((2,epochs)) # reward std deviation per episode
 
     while m < M:
         rewards = np.zeros((2,k))
-        print('iteretion n.',m)
+        #print('iteretion n.',m)
         eps = (1 - m/M) ** 2
         alpha = (1 - m/M)
         #alpha = 0.1
@@ -176,28 +174,32 @@ def multi_agent_qlearning(epochs, ep_length, beta, gamma, seed1, seed2):
         # update stats
         episodes_reward[0,m] = np.sum(rewards[0,:])
         episodes_reward[1,m] = np.sum(rewards[1,:])
-        episodes_means[0,m] = np.mean(rewards[0,:])
-        episodes_means[1,m] = np.mean(rewards[1,:])
-        episodes_std[0,m] = np.std(rewards[0,:])
-        episodes_std[1,m] = np.std(rewards[1,:])
+
         # next iteration
         m = m + 1
         env1.comeback(spiky,0)
         env2.comeback(roby,4)
-        print('Q1 matrix updated:')
-        print(Q1)
-        print('----------------------------------------------')
-        print('Q2 matrix updated:')
-        print(Q2)
-        print('----------------------------------------------')
-        print(collisions)
-    return Q1,Q2, episodes_reward, episodes_means, episodes_std
+        #print('Q1 matrix updated:')
+        #print(Q1)
+        #print('----------------------------------------------')
+        #print('Q2 matrix updated:')
+        #print(Q2)
+        #print('----------------------------------------------')
+        #print(collisions)
+    print('Q1 matrix:')
+    print(Q1)
+    print('----------------------------------------------')
+    print('Q2 matrix:')
+    print(Q2)
+    print('----------------------------------------------')
+    print('Collisions: ',collisions)
+    return Q1,Q2, episodes_reward
 
 def confidency_gaps(n):
     rews = np.zeros((n,2,200))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
-        Q1,Q2, ep_reward, ep_mean, ep_std= multi_agent_qlearning(epochs=200, ep_length=7, beta=0.8,gamma=0.9, seed1=i, seed2= i + 3)
+        Q1,Q2, ep_reward = multi_agent_qlearning(epochs=200, ep_length=7, beta=0.8,gamma=0.9, seed1=i, seed2= i + 3)
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
         rews[i] = ep_reward
     mean = np.mean(rews, axis = 0)
@@ -218,7 +220,35 @@ def confidency_gaps(n):
     axs[1].set_xticks(np.arange(0,201,50))
     plt.show()
 
-
+def sensitivity_analysis(n,ep_range):
+    l = len(ep_range)
+    rews = np.zeros((n,l,2))
+    i = 0
+    for e in ep_range:
+        for j in range(0,n):
+            Q1,Q2,ep_rew = multi_agent_qlearning(epochs=e, ep_length=7, beta=0.8, gamma=0.9,seed1=j,seed2=j+1)
+            max_rew = ep_rew[:,e-1]
+            rews[j,i] = max_rew
+        i += 1
+    mean = np.mean(rews, axis=0)
+    std = np.std(rews, axis=0)/n
+    #fig, axs = plt.subplots(1,2, figsize = (15,5))
+    fig, ax = plt.subplots(figsize = (10,5))
+    #axs[0].set_title('Agent 1')
+    #axs[1].set_title('Agent 2')
+    #axs[0].plot(mean[:,0], color='blue')
+    ax.plot(mean[:,0], color='blue')
+    ax.plot(mean[:,1], color='red')
+    ax.fill_between(range(0,len(mean[:,0])), (mean[:,0] - std[:,0]), (mean[:,0] + std[:,0]), alpha = .3)
+    ax.fill_between(range(0,len(mean[:,0:])), (mean[:,1] - std[:,1]), (mean[:,1] + std[:,1]), alpha = .3, color='red')
+    #axs[0].fill_between(range(0,len(mean[:,0])), (mean[:,0] - std[:,0]), (mean[:,0] + std[:,0]), alpha = .3)
+    #axs[1].plot(mean[:,1], color='red')
+    #axs[1].fill_between(range(0,len(mean[:,0:])), (mean[:,1] - std[:,1]), (mean[:,1] + std[:,1]), alpha = .3, color='red')
+    #axs[0].set_xlabel('Epochs')
+    #axs[1].set_xlabel('Epochs')
+    #axs[0].set_ylabel('Rewards')
+    #axs[1].set_ylabel('Rewards')
+    plt.show()
 
 
 
@@ -226,5 +256,7 @@ def confidency_gaps(n):
 #fig, (ax1,ax2)= plt.subplots(ncols=2,figsize=(15, 5))
 
 
-confidency_gaps(100)
+#confidency_gaps(100)
+e_range = range(100, 450, 50)
+sensitivity_analysis(10,e_range)
 
