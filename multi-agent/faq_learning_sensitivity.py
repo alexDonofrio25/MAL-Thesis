@@ -325,14 +325,20 @@ def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
     plt.show()
 
 def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, greedy):
-    fig = plt.figure(figsize=(15,20))
-    y = len(eps_range) * len(beta_range) * len(ep_range)
-    x = len(epochs_range)
-    axes = fig.subplots(x,y)
-    j = 0
+    figures = []
+    #fig = plt.figure(figsize=(100,100), layout = 'tight', dpi=80)
+    #y = len(eps_range) * len(beta_range) * len(ep_range)
+    #x = len(epochs_range)
+    #axes = fig.subplots(x, y, squeeze=False)
+    #j = 0
     for e in epochs_range:
-        w = 0
+        fig = plt.figure(figsize=(30,30), layout = 'tight', dpi=80)
+        x = len(ep_range)
+        y = len(eps_range) * len(beta_range)
+        axes = fig.subplots(x,y,squeeze=False)
+        j = 0
         for k in ep_range:
+            w = 0
             for eps in eps_range:
                 for beta in beta_range:
                     print(e,'/',k,'/',eps,'/', beta)
@@ -358,7 +364,7 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
                     else:
                         mean = np.mean(rews, axis = 0)
                         std = np.std(rews, axis=0)/np.sqrt(n)
-                        title = str(k)+'/'+eps
+                        title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
                         axes[j,w].set_title(title)
                         axes[j,w].set_xlabel('Epochs')
                         axes[j,w].set_ylabel('Reward')
@@ -368,14 +374,17 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
                         axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
                         print('----------------------------------------------')
                     w += 1
-        j += 1
-    plt.show()
+            j += 1
+        figures.append(fig)
+    #plt.show()
+    return figures
 
-
-epochs_range = [200,300,400]
-ep_range = [7,8,9]
+epochs_range = [100,200,250]
+ep_range = [7,8]
 #eps_range = ['epochs','quadratic','cubic','exponential']
-eps_range = ['quadratic','epochs']
+eps_range = ['quadratic','cubic']
 beta_range = [0.6,0.7,0.8]
 #sensitivity_analysis(64, 400, ep_range, eps_range, False)
-sensitivity_analysis_pro(50,epochs_range,ep_range, eps_range, beta_range, False)
+figures = sensitivity_analysis_pro(50,epochs_range,ep_range, eps_range, beta_range, True)
+
+plt.show()
