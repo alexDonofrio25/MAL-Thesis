@@ -326,8 +326,8 @@ def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
 
 def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, greedy):
     fig = plt.figure(figsize=(15,20))
-    x = len(eps_range) + len(beta_range) + len(ep_range)
-    y = len(epochs_range)
+    y = len(eps_range) * len(beta_range) * len(ep_range)
+    x = len(epochs_range)
     axes = fig.subplots(x,y)
     j = 0
     for e in epochs_range:
@@ -343,34 +343,31 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
                         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
                         rews[i] = ep_rew
                         g_rews[i] = ep_g_rew
-                        if greedy:
-                            mean = np.mean(g_rews, axis = 0)
-                            std = np.std(g_rews, axis=0)/np.sqrt(n)
-                            title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
-                            axes[j,w].set_title(title)
-                            axes[j,w].set_xlabel('Epochs')
-                            axes[j,w].set_ylabel('Reward')
-                            axes[j,w].plot(mean[0,:],color='blue')
-                            axes[j,w].plot(mean[1,:],color='red')
-                            axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
-                            axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
-                            w += 1
-                            print('----------------------------------------------')
-                        else:
-                            mean = np.mean(rews, axis = 0)
-                            std = np.std(rews, axis=0)/np.sqrt(n)
-                            title = str(k)+'/'+eps
-                            axes[j,w].set_title(title)
-                            axes[j,w].set_xlabel('Epochs')
-                            axes[j,w].set_ylabel('Reward')
-                            axes[j,w].plot(mean[0,:],color='blue')
-                            axes[j,w].plot(mean[1,:],color='red')
-                            axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
-                            axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
-                            w += 1
-                            print('----------------------------------------------')
+                    if greedy:
+                        mean = np.mean(g_rews, axis = 0)
+                        std = np.std(g_rews, axis=0)/np.sqrt(n)
+                        title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
+                        axes[j,w].set_title(title)
+                        axes[j,w].set_xlabel('Epochs')
+                        axes[j,w].set_ylabel('Reward')
+                        axes[j,w].plot(mean[0,:],color='blue')
+                        axes[j,w].plot(mean[1,:],color='red')
+                        axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
+                        axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
+                        print('----------------------------------------------')
+                    else:
+                        mean = np.mean(rews, axis = 0)
+                        std = np.std(rews, axis=0)/np.sqrt(n)
+                        title = str(k)+'/'+eps
+                        axes[j,w].set_title(title)
+                        axes[j,w].set_xlabel('Epochs')
+                        axes[j,w].set_ylabel('Reward')
+                        axes[j,w].plot(mean[0,:],color='blue')
+                        axes[j,w].plot(mean[1,:],color='red')
+                        axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
+                        axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
+                        print('----------------------------------------------')
                     w += 1
-                w += 1
         j += 1
     plt.show()
 
@@ -378,7 +375,7 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
 epochs_range = [200,300,400]
 ep_range = [7,8,9]
 #eps_range = ['epochs','quadratic','cubic','exponential']
-eps_range = ['quadratic','cubic','exponential']
+eps_range = ['quadratic','epochs']
 beta_range = [0.6,0.7,0.8]
 #sensitivity_analysis(64, 400, ep_range, eps_range, False)
 sensitivity_analysis_pro(50,epochs_range,ep_range, eps_range, beta_range, False)
