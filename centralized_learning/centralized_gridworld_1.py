@@ -41,8 +41,8 @@ class Environment():
         grid_array = self.grid.flatten()
         if grid_array[s] == 3:
             s_prime = s
-            inst_rew = 0
-            inst_rew_greedy = 0
+            inst_rew = 1.5
+            inst_rew_greedy = 1.5
             return s_prime,inst_rew, inst_rew_greedy
         else:
             if a == 0:
@@ -79,6 +79,9 @@ class Environment():
 
     # checked-working
     def r_generator(self):
+        x = -0.5
+        y = -1.5
+        z = 1.5
         for i in range(0,self.nRows):
             for j in range(0,self.nCols):
                 for a in range(0,self.nA):
@@ -86,44 +89,44 @@ class Environment():
                         if i-1 >= 0:
                             pos = self.grid[i-1,j]
                             if pos == 0 or pos == 2:
-                                self.R[i*self.nRows+j,a] = -0.1
+                                self.R[i*self.nRows+j,a] = x
                             elif pos == 1:
-                                self.R[i*self.nRows+j,a] = -1
+                                self.R[i*self.nRows+j,a] = y
                             elif pos == 3:
-                                self.R[i*self.nRows+j,a] = 1
+                                self.R[i*self.nRows+j,a] = z
                         else:
                             self.R[i*self.nRows+j,a] = 0
                     elif a == 1:
                         if i+1 <= self.nRows - 1:
                             pos = self.grid[i+1,j]
                             if pos == 0 or pos == 2:
-                                self.R[i*self.nRows+j,a] = -0.1
+                                self.R[i*self.nRows+j,a] = x
                             elif pos == 1:
-                                self.R[i*self.nRows+j,a] = -1
+                                self.R[i*self.nRows+j,a] = y
                             elif pos == 3:
-                                self.R[i*self.nRows+j,a] = 1
+                                self.R[i*self.nRows+j,a] = z
                         else:
                             self.R[i*self.nRows+j,a] = 0
                     elif a == 2:
                         if j-1 >= 0:
                             pos = self.grid[i,j-1]
                             if pos == 0 or pos == 2:
-                                self.R[i*self.nRows+j,a] = -0.1
+                                self.R[i*self.nRows+j,a] = x
                             elif pos == 1:
-                                self.R[i*self.nRows+j,a] = -1
+                                self.R[i*self.nRows+j,a] = y
                             elif pos == 3:
-                                self.R[i*self.nRows+j,a] = 1
+                                self.R[i*self.nRows+j,a] = z
                         else:
                             self.R[i*self.nRows+j,a] = 0
                     elif a == 3:
                         if j+1<=self.nCols - 1:
                             pos = self.grid[i,j+1]
                             if pos == 0 or pos == 2:
-                                self.R[i*self.nRows+j,a] = -0.1
+                                self.R[i*self.nRows+j,a] = x
                             elif pos == 1:
-                                self.R[i*self.nRows+j,a] = -1
+                                self.R[i*self.nRows+j,a] = y
                             elif pos == 3:
-                                self.R[i*self.nRows+j,a] = 1
+                                self.R[i*self.nRows+j,a] = z
                         else:
                             self.R[i*self.nRows+j,a] = 0
 
@@ -218,7 +221,6 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     # initial Q function
     Q = np.zeros((env.nS**2,env.nA**2))
 
-
     # Keeps track of useful statistics
     episodes_reward = np.zeros((epochs))
     episodes_reward_greedy = np.zeros((epochs))
@@ -237,8 +239,7 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             a = 0.01
             eps = np.exp(-a*m)
         elif eps_mode == 'trial':
-            a = 0.5
-            eps = 1 - (1/(m+1))**2
+            eps = 1/(m+1)
         # initial state and action
         action_reward1 = []
         action_reward2 = []
@@ -255,6 +256,24 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             #environment exploration
             s1_prime, r1, r1_greedy = env.transition_model(agent1,actions[0], actions_greedy[0])
             s2_prime, r2, r2_greedy = env.transition_model(agent2,actions[1], actions_greedy[1])
+            # collision control
+            if s1_prime == s2_prime:
+                # agent 1 is the master, so agent2 gets the bad reward
+                grid_flatten = env.grid.flatten()
+                if grid_flatten[s2] != 3:
+                    if s2 != s2_prime:
+                        s2_prime = s2
+                        agent2.set_position(s2_prime)
+                        r2 = -1
+                    else:
+                        s1_prime = s1
+                        agent1.set_position(s1_prime)
+                        r1 = -1
+                else:
+                    s1_prime = s1
+                    agent1.set_position(s1_prime)
+                    r1 = -1
+                collisions.append(m)
             # state generation
             s_prime = tuple_to_state([s1_prime,s2_prime])
             # compute the cumulated reward
@@ -271,14 +290,8 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             episodes_reward_agents[1,m] += r2
             episodes_reward_agents_greedy[0,m] += r1_greedy
             episodes_reward_agents_greedy[1,m] += r2_greedy
-            # Q-learning update with collision control
-            if s1_prime == s2_prime:
-                collisions.append(m)
-                reward = -2
-                Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
-                break
-            else:
-                Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
+            # Q-learning update
+            Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
             s = s_prime
             a = a_prime
         # next iteration
@@ -288,6 +301,7 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
         print('epochs ', m-1)
         print('Actions/Reward Agent 1: ', action_reward1)
         print('Actions/Reward Agent 2: ', action_reward2)
+        print(collisions)
     #print('Q matrix:')
     #print(Q)
     #print('----------------------------------------------')
@@ -357,9 +371,10 @@ def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
 #confidency_gaps(100,1000)
 
 ep_range = [7,8,9,10]
-eps_range = ['trial']
-#sensitivity_analysis(100,800, ep_range, eps_range, True)
-Q, ep_rew, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(1000, 11,0.9, 876, 'trial')
+#eps_range = ['epochs','quadratic','cubic','exponential']
+eps_range = ['epochs']
+sensitivity_analysis(50,500, ep_range, eps_range, False)
+Q, ep_rew, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(1000, 8,0.9, 43, 'epochs')
 fig = plt.figure()
 ax = fig.subplots(1,1)
 ax.plot(range(0, len(ep_rew)),ep_rew, color = 'red')
