@@ -41,8 +41,8 @@ class Environment():
         grid_array = self.grid.flatten()
         if grid_array[s] == 3:
             s_prime = s
-            inst_rew = 1.5
-            inst_rew_greedy = 1.5
+            inst_rew = 1
+            inst_rew_greedy = inst_rew
             return s_prime,inst_rew, inst_rew_greedy
         else:
             if a == 0:
@@ -79,9 +79,9 @@ class Environment():
 
     # checked-working
     def r_generator(self):
-        x = -0.5
-        y = -1.5
-        z = 1.5
+        x = -0.1
+        y = -1
+        z = 1
         for i in range(0,self.nRows):
             for j in range(0,self.nCols):
                 for a in range(0,self.nA):
@@ -204,6 +204,29 @@ def tuple_to_action(tuple):
     action = tuple[0]*4 + tuple[1]
     return action
 
+def update_function(Q, alpha, gamma, s, s_prime, a, r, allowed_actions):
+    Q_s = Q[s,:]
+    Q_sp = Q[s_prime,:]
+    Q_sa = Q[s,a]
+    s1_p = int(s_prime/25)
+    s2_p = int(s_prime%25)
+    actions1 = np.where(allowed_actions[s1_p])
+    actions2 = np.where(allowed_actions[s2_p])
+    actions1 = actions1[0] # just keep the indices of the allowed actions
+    actions2 = actions2[0]
+    i = 0
+    for qs in Q_sp:
+        a1 = int(i/4)
+        a2 = int(i%4)
+        if (a1 not in actions1) or (a2 not in actions2):
+            Q_sp[i] = -np.inf
+        i+=1
+    Q_max = np.max(Q_sp)
+    Q_sa1= Q_sa + alpha * (r + (gamma * Q_max) - Q_sa)
+    Q[s,a] = Q_sa1
+    return Q
+
+
 def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     agent1 = Agent('Spiky',0)
     agent2 = Agent('Roby',4)
@@ -228,7 +251,8 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     episodes_reward_agents_greedy = np.zeros((2,epochs))
 
     while m<M:
-        alpha = (1 - m/M)
+        alpha = (1 - (m+1)/M)**2
+        #alpha = 1/(m+1)
         if eps_mode == 'epochs':
             eps = (1 - m/M) ** 2
         elif eps_mode == 'quadratic':
@@ -258,27 +282,30 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             s2_prime, r2, r2_greedy = env.transition_model(agent2,actions[1], actions_greedy[1])
             # collision control
             if s1_prime == s2_prime:
+                r = -1
                 # agent 1 is the master, so agent2 gets the bad reward
                 grid_flatten = env.grid.flatten()
                 if grid_flatten[s2] != 3:
                     if s2 != s2_prime:
                         s2_prime = s2
                         agent2.set_position(s2_prime)
-                        r2 = -1
+                        r2 = r
                     else:
                         s1_prime = s1
                         agent1.set_position(s1_prime)
-                        r1 = -1
+                        r1 = r
                 else:
                     s1_prime = s1
                     agent1.set_position(s1_prime)
-                    r1 = -1
+                    r1 = r
                 collisions.append(m)
             # state generation
             s_prime = tuple_to_state([s1_prime,s2_prime])
             # compute the cumulated reward
             reward = r1 + r2
             reward_greedy = r1_greedy + r2_greedy
+            #reward = np.min([r1,r2])
+            #reward_greedy = np.min([r1_greedy,r2_greedy])
             # policy improvement step
             a_prime, a_greedy = eps_greedy(s1_prime,s2_prime,Q,eps, env.allowed_actions)
             # Update stats
@@ -291,7 +318,8 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             episodes_reward_agents_greedy[0,m] += r1_greedy
             episodes_reward_agents_greedy[1,m] += r2_greedy
             # Q-learning update
-            Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
+            Q = update_function(Q,alpha,gamma,s,s_prime,a,reward, env.allowed_actions)
+            #Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
             s = s_prime
             a = a_prime
         # next iteration
@@ -301,11 +329,12 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
         print('epochs ', m-1)
         print('Actions/Reward Agent 1: ', action_reward1)
         print('Actions/Reward Agent 2: ', action_reward2)
-        print(collisions)
+        #print(collisions)
     #print('Q matrix:')
     #print(Q)
     #print('----------------------------------------------')
     #print(collisions)
+    print(Q[4,:])
     return Q,episodes_reward, episodes_reward_greedy, episodes_reward_agents, episodes_reward_agents_greedy
 
 def confidency_gaps(n,epochs):
@@ -370,11 +399,11 @@ def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
 
 #confidency_gaps(100,1000)
 
-ep_range = [7,8,9,10]
+ep_range = [7,8,9]
 #eps_range = ['epochs','quadratic','cubic','exponential']
-eps_range = ['epochs']
-sensitivity_analysis(50,500, ep_range, eps_range, False)
-Q, ep_rew, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(1000, 8,0.9, 43, 'epochs')
+eps_range = ['epochs','trial']
+sensitivity_analysis(50,500, ep_range, eps_range, True)
+Q, ep_rew, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(900, 7,0.9, 50, 'trial')
 fig = plt.figure()
 ax = fig.subplots(1,1)
 ax.plot(range(0, len(ep_rew)),ep_rew, color = 'red')
