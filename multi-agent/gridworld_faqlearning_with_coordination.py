@@ -102,7 +102,7 @@ def eps_greedy(s, Q, eps, allowed_actions):
     xi = 1 - (mult-1)*eps
   return a, xi
 
-def multi_agent_qlearning():
+def faq_qlearning():
     spiky = Agent('Spiky',0)
     roby = Agent('Roby',4)
     collisions = []
@@ -121,8 +121,6 @@ def multi_agent_qlearning():
     Q2 = np.zeros((env2.nS,env2.nA))
 
     while m<M:
-        if m == 599:
-            print('ehi')
         print('iteretion n.',m)
         eps = (1 - m/M) ** 2
         alpha = (1 - m/M)
@@ -185,4 +183,4 @@ def multi_agent_qlearning():
         print(collisions)
     return Q1,Q2
 
-q1,q2 = multi_agent_qlearning()
+q1,q2 = faq_qlearning()
