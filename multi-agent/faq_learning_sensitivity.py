@@ -212,13 +212,6 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
 
 
     while m < M:
-        # keeps track of the episode's rewards
-        rewards = np.zeros((2,k))
-        # keeps track of the greedy episode's reward
-        rewards_greedy = np.zeros((2,k))
-        # keeps track of the joint reward = min(r1,r2)
-        joint_reward_greedy = np.zeros(k)
-        joint_reward = np.zeros(k)
 
         if eps_mode == 'epochs':
             eps = (1 - m/M) ** 2
@@ -232,6 +225,8 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
         alpha = (1 - (m+1)/M)
         #alpha = 0.1
         # initial state and action
+        action_reward1 = []
+        action_reward2 = []
         s1 = spiky.get_position()
         s2 = roby.get_position()
         a1,xi1, a1_greedy = eps_greedy(s1, Q1, eps, env1.allowed_actions)
@@ -256,13 +251,15 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
                 else:
                     s_prime1 = s1
                     reward1 = -1
-            # Save stats
-            rewards[0,i] = reward1
-            rewards[1,i] = reward2
-            rewards_greedy[0,i] = r1_greedy
-            rewards_greedy[1,i] = r2_greedy
-            joint_reward_greedy[i] = np.min([r1_greedy,r2_greedy])
-            joint_reward[i] = np.min([reward1,reward2])
+            # Update stats
+            action_reward1.append([s1,a1,reward1])
+            action_reward2.append([s2,a2,reward2])
+            episodes_reward[0,m] += reward1
+            episodes_reward[1,m] += reward2
+            ep_greedy_reward[0,m] += r1_greedy
+            ep_greedy_reward[1,m] += r2_greedy
+            ep_rew_joint[m] += np.min([reward1,reward2])
+            ep_rewg_joint[m] = np.min([r1_greedy,r2_greedy])
 
             # Q-learning update
             Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * alpha * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
@@ -276,15 +273,9 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             a2 = a_prime2
             #if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                 #break
-
-        # update stats
-        episodes_reward[0,m] = np.sum(rewards[0,:])
-        episodes_reward[1,m] = np.sum(rewards[1,:])
-        ep_greedy_reward[0,m] = np.sum(rewards_greedy[0,:])
-        ep_greedy_reward[1,m] = np.sum(rewards_greedy[1,:])
-        ep_rew_joint[m] = np.sum(joint_reward)
-        ep_rewg_joint[m] = np.sum(joint_reward_greedy)
-
+        print('epochs ', m)
+        print('Actions/Reward Agent 1: ', action_reward1)
+        print('Actions/Reward Agent 2: ', action_reward2)
         # next iteration
         m = m + 1
         env1.comeback(spiky,0)
@@ -390,15 +381,19 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
                     print(e,'/',k,'/',eps,'/', beta)
                     rews = np.zeros((n,2,e))
                     g_rews = np.zeros((n,2,e))
+                    joint_rews = np.zeros((n,e))
+                    joint_g_rews = np.zeros((n,e))
                     for i in range(0,n):
                         Q1,Q2, ep_rew, ep_g_rew, epj, epgj = faq_learning(e, k, beta, gamma=0.9, seed1= i, seed2=i+n, eps_mode= eps)
                         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
                         rews[i] = ep_rew
                         g_rews[i] = ep_g_rew
+                        joint_rews[i] = epj
+                        joint_g_rews[i] = epgj
                     if greedy:
                         if joint:
-                            mean = np.mean(epgj, axis = 0)
-                            std = np.std(g_rews, axis=0)/np.sqrt(n)
+                            mean = np.mean(joint_g_rews, axis = 0)
+                            std = np.std(joint_g_rews, axis=0)/np.sqrt(n)
                             title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
                             axes[j,w].set_title(title)
                             axes[j,w].set_xlabel('Epochs')
@@ -421,17 +416,30 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
                             axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
                             print('----------------------------------------------')
                     else:
-                        mean = np.mean(rews, axis = 0)
-                        std = np.std(rews, axis=0)/np.sqrt(n)
-                        title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
-                        axes[j,w].set_title(title)
-                        axes[j,w].set_xlabel('Epochs')
-                        axes[j,w].set_ylabel('Reward')
-                        axes[j,w].plot(mean[0,:],color='blue')
-                        axes[j,w].plot(mean[1,:],color='red')
-                        axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
-                        axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
-                        print('----------------------------------------------')
+                        if joint:
+                            mean = np.mean(joint_rews, axis = 0)
+                            std = np.std(joint_rews, axis=0)/np.sqrt(n)
+                            title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
+                            axes[j,w].set_title(title)
+                            axes[j,w].set_xlabel('Epochs')
+                            axes[j,w].set_ylabel('Reward')
+                            axes[j,w].plot(mean[0,:],color='blue')
+                            axes[j,w].plot(mean[1,:],color='red')
+                            axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
+                            axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
+                            print('----------------------------------------------')
+                        else:
+                            mean = np.mean(rews, axis = 0)
+                            std = np.std(rews, axis=0)/np.sqrt(n)
+                            title = str(e)+'/'+ str(k) + '/' + eps + '/' + str(beta)
+                            axes[j,w].set_title(title)
+                            axes[j,w].set_xlabel('Epochs')
+                            axes[j,w].set_ylabel('Reward')
+                            axes[j,w].plot(mean[0,:],color='blue')
+                            axes[j,w].plot(mean[1,:],color='red')
+                            axes[j,w].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
+                            axes[j,w].fill_between(range(0,len(mean[1,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
+                            print('----------------------------------------------')
                     w += 1
             j += 1
         figures.append(fig)
@@ -478,12 +486,12 @@ def repetition_controls(n, epochs, ep, beta, eps, greedy):
 #rew, rew_g = repetition_controls(50,200,7,0.7,'cubic',True)
 #print(rew[:,:,199])
 #print(rew_g[:,:,199])
-epochs_range = [200]
+epochs_range = [250]
 ep_range = [7,8]
-eps_range = ['epochs','quadratic','cubic']
+eps_range = ['trial','quadratic','cubic']
 #eps_range = ['trial']
 beta_range = [0.6,0.7,0.8]
-sensitivity_analysis(50, 400, ep_range, eps_range, True, True)
+sensitivity_analysis(50, 250, ep_range, eps_range, True, True)
 figures = sensitivity_analysis_pro(50,epochs_range,ep_range, eps_range, beta_range, True)
 
 plt.show()
