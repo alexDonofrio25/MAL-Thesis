@@ -263,7 +263,7 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             a = 0.01
             eps = np.exp(-a*m)
         elif eps_mode == 'trial':
-            eps = 1/(m+1)
+            eps = (1/(m+1))**0.5
         # initial state and action
         action_reward1 = []
         action_reward2 = []
@@ -322,6 +322,8 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             #Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
             s = s_prime
             a = a_prime
+            if (agent1.get_position() == 17 or agent1.get_position() == 22) and (agent2.get_position() == 17 or agent2.get_position() == 22):
+                break
         # next iteration
         m = m + 1
         env.comeback(agent1,0)
@@ -336,24 +338,29 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     #print(collisions)
     return Q,episodes_reward, episodes_reward_greedy, episodes_reward_agents, episodes_reward_agents_greedy
 
-def confidency_gaps(n,epochs):
+def confidency_gaps(n,epochs,k,greedy):
     rews = np.zeros((n,epochs))
+    g_rews = np.zeros((n,epochs))
+    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(10, 5))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
-        Q, ep_reward, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(epochs, ep_length=6, gamma=0.9, seed=i, eps_mode='exponential')
+        Q, ep_reward, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(epochs, ep_length=k, gamma=0.9, seed=i, eps_mode='quadratic')
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
         rews[i] = ep_reward
+        g_rews[i] = ep_rew_g
+    if greedy:
+        mean = np.mean(g_rews, axis=0)
+        std = np.std(g_rews, axis=0)/np.sqrt(n)
+        ax.set_title('Centralized Q-Learning Greedy')
+    else:
+        mean = np.mean(rews, axis=0)
+        std = np.std(rews, axis=0)/np.sqrt(n)
+        ax.set_title('Centralized Q-Learning')
 
-    mean = np.mean(rews, axis=0)
-    std = np.std(rews, axis=0)/np.sqrt(n)
-
-    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(10, 5))
-    ax.set_title('Agents')
-    ax.plot(mean, color='blue')
-    ax.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .3)
+    ax.plot(mean, color='green')
+    ax.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .4)
     ax.set_xlabel('Epochs')
     ax.set_ylabel('Rewards')
-    ax.set_xticks(np.arange(0,epochs + 1,50))
     plt.show()
 
 def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
@@ -396,7 +403,7 @@ def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
         j += 1
     plt.show()
 
-#confidency_gaps(100,1000)
+confidency_gaps(50,450,8, True)
 
 ep_range = [7,8,9]
 #eps_range = ['epochs','quadratic','cubic','exponential']

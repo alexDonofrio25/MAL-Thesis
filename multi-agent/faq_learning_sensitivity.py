@@ -41,7 +41,7 @@ class Environment():
         grid_array = self.grid.flatten()
         if grid_array[s] == 3:
             s_prime = s
-            inst_rew = 1
+            inst_rew = 1.0
             inst_rew_greedy = inst_rew
             return s_prime,inst_rew, inst_rew_greedy
         else:
@@ -235,22 +235,25 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
         for i in range(0,k):
             s_prime1, reward1, r1_greedy = env1.transition_model(spiky,a1,a1_greedy)
             s_prime2, reward2, r2_greedy = env2.transition_model(roby,a2,a2_greedy)
-            # check if the robots collide
+            # collision control
             if s_prime1 == s_prime2 or (s1 == s_prime2 and s2 == s_prime1):
-                collisions.append(m)
-                if s_prime1 == 17 or s_prime1 == 22 or s_prime2 == 17 or s_prime2 == 22:
-                    if s_prime1 == 17 or s_prime1 == 22:
-                        flag = 1
+                r = -1.0
+                # agent 1 is the master, so agent2 gets the bad reward
+                grid_flatten = env1.grid.flatten()
+                if grid_flatten[s2] != 3:
+                    if s2 != s_prime2:
+                        s_prime2 = s2
+                        roby.set_position(s_prime2)
+                        reward2 = r
                     else:
-                        flag = 2
-                else:
-                    flag = np.random.choice([1,2])
-                if flag == 1:
-                    s_prime2 = s2
-                    reward2 = -1
+                        s_prime1 = s1
+                        spiky.set_position(s_prime1)
+                        reward1 = r
                 else:
                     s_prime1 = s1
-                    reward1 = -1
+                    spiky.set_position(s_prime1)
+                    reward1 = r
+                collisions.append(m)
             # Update stats
             action_reward1.append([s1,a1,reward1])
             action_reward2.append([s2,a2,reward2])
@@ -259,7 +262,7 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             ep_greedy_reward[0,m] += r1_greedy
             ep_greedy_reward[1,m] += r2_greedy
             ep_rew_joint[m] += np.min([reward1,reward2])
-            ep_rewg_joint[m] = np.min([r1_greedy,r2_greedy])
+            ep_rewg_joint[m] += np.min([r1_greedy,r2_greedy])
 
             # Q-learning update
             Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * alpha * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
@@ -271,8 +274,8 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             a1 = a_prime1
             s2 = s_prime2
             a2 = a_prime2
-            #if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
-                #break
+            if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
+                break
         print('epochs ', m)
         print('Actions/Reward Agent 1: ', action_reward1)
         print('Actions/Reward Agent 2: ', action_reward2)
@@ -288,6 +291,31 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
     #print('----------------------------------------------')
     #print('Collisions: ',collisions)
     return Q1,Q2, episodes_reward, ep_greedy_reward, ep_rew_joint, ep_rewg_joint
+
+def confidency_gaps(n,epochs,k,b,greedy):
+    rews = np.zeros((n,epochs))
+    g_rews = np.zeros((n,epochs))
+    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(10, 5))
+    for i in range(0,n):
+        # ogni esperimento è eseguito con seed diversi
+        Q1,Q2, ep_rew, ep_g_rew, epj, epgj  = faq_learning(epochs, ep_length=k, beta=b, gamma=0.9, seed1=i, seed2=i+n, eps_mode='quadratic')
+        # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
+        rews[i] = epj
+        g_rews[i] = epgj
+    if greedy:
+        mean = np.mean(g_rews, axis=0)
+        std = np.std(g_rews, axis=0)/np.sqrt(n)
+        ax.set_title('FAQ Learning (Joined rewards) Greedy')
+    else:
+        mean = np.mean(rews, axis=0)
+        std = np.std(rews, axis=0)/np.sqrt(n)
+        ax.set_title('FAQ Learning (Joined rewards)')
+
+    ax.plot(mean, color='green')
+    ax.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .4)
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel('Rewards')
+    plt.show()
 
 def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy, joint):
     fig = plt.figure(figsize=(15,20))
@@ -447,51 +475,51 @@ def sensitivity_analysis_pro(n, epochs_range, ep_range, eps_range, beta_range, g
     return figures
 
 def repetition_controls(n, epochs, ep, beta, eps, greedy):
-    rew = np.zeros((n,2,epochs))
-    rew_g = np.zeros((n,2,epochs))
-    joint_rew_g = np.zeros((n,epochs))
-    joint_rew = np.zeros((n,epochs))
-    fig = plt.figure(figsize=(30,30), layout = 'tight', dpi=80)
+    finals = []
+    rews = np.zeros((n,2,epochs))
+    g_rews = np.zeros((n,2,epochs))
+    joint_g_rews = np.zeros((n,epochs))
+    joint_rews = np.zeros((n,epochs))
+    fig = plt.figure(figsize=(18,10), layout = 'tight', dpi=80)
     axes = fig.subplots(1,3,squeeze=False)
-    axes[0,0].set_title('Agent 1')
-    axes[0,1].set_title('Agent 2')
-    axes[0,2].set_title('Cumulated')
-    axes[0,0].set_xlabel('Epochs')
-    axes[0,0].set_ylabel('Reward')
-    axes[0,1].set_xlabel('Epochs')
-    axes[0,1].set_ylabel('Reward')
-    axes[0,2].set_xlabel('Epochs')
-    axes[0,2].set_ylabel('Reward')
+    axes[0,0].set_title('Agent 1 Realizations')
+    axes[0,1].set_title('Agent 2 Realizations')
+    axes[0,2].set_title('Joint Realizations')
+    for i in range(0,3):
+        axes[0,i].set_xlabel('Epochs')
+        axes[0,i].set_ylabel('Reward')
     for i in range(0,n):
         Q1,Q2, ep_rew, ep_g_rew, epj, epgj = faq_learning(epochs, ep, beta, gamma=0.9, seed1= i, seed2=i+n, eps_mode= eps)
-        rew[i] = ep_rew
-        rew_g[i] = ep_g_rew
-        joint_rew_g[i] = epgj
-        joint_rew[i] = epj
+        rews[i] = ep_rew
+        g_rews[i] = ep_g_rew
+        joint_g_rews[i] = epgj
+        finals.append(epgj[epochs-1])
+        joint_rews[i] = epj
         if greedy:
-            axes[0,0].plot(rew_g[i,0,:])
-            axes[0,1].plot(rew_g[i,1,:])
-            axes[0,2].plot(joint_rew_g[i,:])
+            axes[0,0].plot(g_rews[i,0,:])
+            axes[0,1].plot(g_rews[i,1,:])
+            axes[0,2].plot(joint_g_rews[i,:])
         else:
-            axes[0,0].plot(rew[i,0,:])
-            axes[0,1].plot(rew[i,1,:])
-            axes[0,2].plot(joint_rew[i,:])
+            axes[0,0].plot(rews[i,0,:])
+            axes[0,1].plot(rews[i,1,:])
+            axes[0,2].plot(joint_rews[i,:])
+    unique, counts = np.unique(finals, return_counts=True)
+    print('Final values: ', unique)
+    print('Count: ', counts)
     plt.show()
-    return rew, rew_g
+    return rews, g_rews
 
 
-
-
-
-#rew, rew_g = repetition_controls(50,200,7,0.7,'cubic',True)
+#confidency_gaps(50,180,7,0.7,True)
+rew, rew_g = repetition_controls(100,180,7,0.6,'quadratic',True)
 #print(rew[:,:,199])
 #print(rew_g[:,:,199])
 epochs_range = [250]
 ep_range = [7,8]
-eps_range = ['trial','quadratic','cubic']
+eps_range = ['cubic','trial','quadratic']
 #eps_range = ['trial']
 beta_range = [0.6,0.7,0.8]
-sensitivity_analysis(50, 250, ep_range, eps_range, True, True)
+sensitivity_analysis(50, 200, ep_range, eps_range, True, True)
 figures = sensitivity_analysis_pro(50,epochs_range,ep_range, eps_range, beta_range, True)
 
 plt.show()
