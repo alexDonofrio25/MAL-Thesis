@@ -220,7 +220,7 @@ def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
         elif eps_mode == 'cubic':
             eps = (1/(m+1))**3
         elif eps_mode == 'trial':
-            eps = (1/(m+1))**0.5
+            eps = (1/(m+1))**(2/3)
 
         alpha = (1 - (m+1)/M)
         #alpha = 0.1
@@ -298,7 +298,7 @@ def confidency_gaps(n,epochs,k,b,greedy):
     fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(10, 5))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
-        Q1,Q2, ep_rew, ep_g_rew, epj, epgj  = faq_learning(epochs, ep_length=k, beta=b, gamma=0.9, seed1=i, seed2=i+n, eps_mode='quadratic')
+        Q1,Q2, ep_rew, ep_g_rew, epj, epgj  = faq_learning(epochs, ep_length=k, beta=b, gamma=0.9, seed1=i, seed2=i+n, eps_mode='cubic')
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
         rews[i] = epj
         g_rews[i] = epgj
@@ -510,8 +510,8 @@ def repetition_controls(n, epochs, ep, beta, eps, greedy):
     return rews, g_rews
 
 
-#confidency_gaps(50,180,7,0.7,True)
-rew, rew_g = repetition_controls(100,180,7,0.6,'quadratic',True)
+confidency_gaps(100,180,7,0.6,True)
+rew, rew_g = repetition_controls(100,180,7,0.6,'cubic',True)
 #print(rew[:,:,199])
 #print(rew_g[:,:,199])
 epochs_range = [250]
