@@ -148,15 +148,28 @@ def undoMove(a):
         u = 2
     return u
 
-async def transition_model(env,agent1,a1,client1, agent2, a2, client2):
+def tuple_to_state(tuple):
+        s = tuple[0]*25 + tuple[1]
+        return s
+
+def coupled_action(a):
+    action_pair = [int(a/4),int(a%4)]
+    return action_pair
+
+def tuple_to_action(tuple):
+    action = tuple[0]*4 + tuple[1]
+    return action
+
+async def transition_model(env,agent1,client1, agent2, client2, a):
     # action encoding:
     # 0: up
     # 1: down
     # 2: left
     # 3: right
-    grid = env.grid.flatten()
     s1 = agent1.get_position()
     s2 = agent2.get_position()
+    a1,a2 = coupled_action(a)
+    grid = env.grid.flatten()
     if grid[s1] == 3:
         inst_rew1 = 1.0
         sp1 = s1
@@ -235,42 +248,46 @@ async def transition_model(env,agent1,a1,client1, agent2, a2, client2):
                 inst_rew2 = 1.0
         agent1.set_position(sp1)
         agent2.set_position(sp2)
-        return sp1,sp2, inst_rew1, inst_rew2
+        inst_rew = np.min([inst_rew1,inst_rew2])
+        return sp1,sp2, inst_rew
 
 # definition of the greedy policy for our model
-def eps_greedy(s, Q, eps, allowed_actions):
-    actions = np.where(allowed_actions[s])
-    actions = actions[0] # just keep the indices of the allowed actions
+def eps_greedy(s1, s2, Q, eps, allowed_actions):
+    actions1 = np.where(allowed_actions[s1])
+    actions2 = np.where(allowed_actions[s2])
+    actions1 = actions1[0] # just keep the indices of the allowed actions
+    actions2 = actions2[0]
     if np.random.rand() <= eps:
-        mult = len(actions)
-        a = np.random.choice(actions, p=(np.ones(len(actions)) / len(actions)))
-        xi = eps/(mult-1)
+        a1 = np.random.choice(actions1, p=(np.ones(len(actions1)) / len(actions1)))
+        a2 = np.random.choice(actions2, p=(np.ones(len(actions2)) / len(actions2)))
+        a = tuple_to_action([a1,a2])
     else:
+        s = tuple_to_state([s1,s2])
         Q_s = Q[s, :].copy()
-        Q_s[allowed_actions[s] == 0] = - np.inf
+        i = 0
+        for qs in Q_s:
+            s_prime1 = int(i/4)
+            s_prime2 = int(i%4)
+            if (s_prime1 not in actions1) or (s_prime2 not in actions2):
+                Q_s[i] = -np.inf
+            i+=1
         a = np.argmax(Q_s)
-        xi = 1 - eps
-    return a, xi
+    return a
 
-async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
+async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     spiky = Agent('Spiky',0)
     roby = Agent('Roby',4)
-    collisions = []
-    env1 = Environment()
-    env2 = Environment()
+    env = Environment()
     # they generare the allowed actions for the grid and the reward distribution
-    env1.setup()
-    env2.setup()
+    env.setup()
     # randomize the experiment
-    env1._seed(seed1)
-    env2._seed(seed2)
+    env._seed(seed)
     # learning parameters
     M = epochs
     m = 0
     k = ep_length # length of the episode
     # initial Q function
-    Q1 = np.zeros((env1.nS,env1.nA))
-    Q2 = np.zeros((env2.nS,env2.nA))
+    Q = np.zeros((env.nS**2,env.nA**2))
     # generate the two connections
     robot1 = Connection('Spiky',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
     robot2 = Connection('Roby',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
@@ -297,9 +314,8 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             # initial state and action
             s1 = spiky.get_position()
             s2 = roby.get_position()
-            a1,xi1 = eps_greedy(s1, Q1, eps, env1.allowed_actions)
-            a2,xi2 = eps_greedy(s2, Q2, eps, env2.allowed_actions)
-            # let the robot go out the dock
+            s = tuple_to_state([s1,s2])
+            a = eps_greedy(s1,s2, Q, eps, env.allowed_actions)
             # ack robot 1
             await robot1.send_message(b'ack1')
             time.sleep(0.5)
@@ -315,17 +331,14 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             await robot2.getData()
             # execute an entire episode of k actions
             for i in range(0,k):
-                s_prime1,s_prime2, reward1, reward2 = await transition_model(env1,spiky,a1, robot1, roby, a2, robot2)
+                s1_prime,s2_prime, reward = await transition_model(env,spiky, robot1, roby, robot2, a)
                 # Q-learning update
-                Q1[s1, a1] = Q1[s1, a1] + np.min([beta/xi1,1]) * alpha * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
-                Q2[s2, a2] = Q2[s2, a2] + np.min([beta/xi2,1]) * alpha * (reward2 + gamma * np.max(Q2[s_prime2, :]) - Q2[s2, a2])
+                s_prime = tuple_to_state([s1_prime,s2_prime])
+                Q[s, a] = Q[s, a] + alpha * (reward + gamma * np.max(Q[s_prime, :]) - Q[s, a])
                 # policy improvement step
-                a_prime1,xi1 = eps_greedy(s_prime1,Q1,eps, env1.allowed_actions)
-                a_prime2,xi2 = eps_greedy(s_prime2,Q2,eps, env2.allowed_actions)
-                s1 = s_prime1
-                a1 = a_prime1
-                s2 = s_prime2
-                a2 = a_prime2
+                a_prime = eps_greedy(s1_prime,s2_prime,Q,eps, env.allowed_actions)
+                s = s_prime
+                a = a_prime
                 if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                     break
             print('epochs ', m)
@@ -337,14 +350,14 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             str1 = str(7)
             await robot1.send_message(bytes(str1,'utf-8'))
             await robot1.getData()
-            env1.comeback(spiky,0)
+            env.comeback(spiky,0)
             # ack robot 2
             await robot2.send_message(b'ack2')
             time.sleep(0.5)
             str2 = str(7)
             await robot2.send_message(bytes(str2,'utf-8'))
             await robot2.getData()
-            env2.comeback(roby,4)
+            env.comeback(roby,4)
         # ack robot 1
         await robot1.send_message(b'ack1')
         time.sleep(0.5)
@@ -360,6 +373,6 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
     finally:
         await robot1.disconnect()
         await robot2.disconnect()
-    return Q1,Q2
+    return Q
 
-asyncio.run(faq_learning(180,7,0.6,0.9,1,10,'quadratic'))
+asyncio.run(centralized_qlearning(400,8,0.9,10,'cubic'))
