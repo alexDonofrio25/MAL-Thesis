@@ -279,7 +279,7 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
         await robot1.connect()
         await robot2.connect()
         print('click the robots to start')
-    # wait the first ack from the robots
+        # wait the first ack from the robots
         await robot1.getData()
         await robot2.getData()
 

@@ -179,7 +179,6 @@ class Robot():
 
     def comeback_function(self,d):
         #self.hub.moving_motors.settings(200,100,720,360)
-        p = self.get_position()
         up = self.down*d
         if up != 0:
             self.hub.move_up(up)
@@ -193,6 +192,8 @@ class Robot():
         else:
             self.hub.turn_left(90)
         self.hub.angle = 0
+        self.down = 0
+        self.left = 0
 
 def idle(robot):
         ack = None
