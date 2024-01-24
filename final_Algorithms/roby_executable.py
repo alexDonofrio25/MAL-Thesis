@@ -8,10 +8,9 @@ from usys import stdin, stdout
 class Robot():
 
     def __init__(self):
-        self.rob = PrimeHub()
-        self.hub = self.rob.hub()
+        self.hub = PrimeHub()
         self.color_sensor = ColorSensor(Port.B)
-        self.distance_sensor = UltrasonicSensor(Port.F)
+        self.distance_sensor = UltrasonicSensor(Port.A)
         self.right_motor = Motor(Port.C)
         self.left_motor = Motor(Port.E, Direction.COUNTERCLOCKWISE)
         self.moving_motors = DriveBase(self.left_motor, self.right_motor, wheel_diameter=88, axle_track=144.75)
@@ -49,17 +48,17 @@ class Robot():
     def display_text(self,text):
         if isinstance(text,str) == False:
             text = str(text)
-        self.rob.display.text(text)
+        self.hub.display.text(text)
 
     def display_arrows(self,action):
         if action == 0:
-            self.rob.display.icon(Icon.ARROW_LEFT)
+            self.hub.display.icon(Icon.ARROW_LEFT)
         elif action == 1:
-            self.rob.display.icon(Icon.ARROW_RIGHT)
+            self.hub.display.icon(Icon.ARROW_RIGHT)
         elif action == 2:
-            self.rob.display.icon(Icon.ARROW_DOWN)
+            self.hub.display.icon(Icon.ARROW_DOWN)
         elif action == 3:
-            self.rob.display.icon(Icon.ARROW_UP)
+            self.hub.display.icon(Icon.ARROW_UP)
 
     def get_angle(self):
         return self.angle
@@ -130,68 +129,50 @@ class Robot():
             self.moving_motors.turn(-90-teta)
             wait(300)
             self.moving_motors.straight(dis,Stop.BRAKE)
-        if self.angle == 0:
-            self.moving_motors.turn(-90)
-            self.moving_motors.stop()
-            wait(500)
-            self.moving_motors.straight(dis)
-            self.moving_motors.stop()
-            wait(500)
-            self.angle += -90
-        elif self.angle == -90:
-            self.moving_motors.straight(dis)
-            self.moving_motors.stop()
-            wait(500)
-        elif self.angle == 90:
-            self.moving_motors.turn(-180)
-            #self.moving_motors.turn(-77)
-            self.moving_motors.stop()
-            wait(500)
-            self.moving_motors.straight(dis)
-            self.moving_motors.stop()
-            wait(500)
-            self.angle += -180
 
     def backInTheHub(self):
-        self.rob.display.icon(Icon.HAPPY)
+        self.hub.light.on(Color.MAGENTA)
         self.setSpeed(150,80)
         #self.turn_left(180)
         i = 1
+        self.moving_motors.reset()
         self.moving_motors.straight(200)
         dis = self.distance_sensor.distance()
-        while dis > 40:
-            if i > 3.1 and i%2 == 0:
+        while dis > 39:
+            if i > 2.1 and i%2 == 0:
                 self.moving_motors.curve(150,5*i)
                 self.moving_motors.curve(150,-10*i)
             else:
                 self.moving_motors.curve(150,-5*i)
                 self.moving_motors.curve(150,10*i)
             dis = self.distance_sensor.distance()
-            if i > 3:
+            if i > 2 and i <= 4:
                 self.moving_motors.straight(-50)
-            print(dis)
-            if dis == 2000:
+            dis = self.distance_sensor.distance()
+            if dis == 2000 or i == 4.5:
                 break
             i+=0.5
-        self.moving_motors.straight(20)
+        self.setSpeed(350,280)
+        self.moving_motors.straight(100)
         self.moving_motors.stop()
         self.moving_motors.reset()
 
     def comeback_function(self,d):
         #self.hub.moving_motors.settings(200,100,720,360)
+        self.hub.light.on(Color.MAGENTA)
         up = self.down*d
-        if up != 0:
-            self.hub.move_up(up)
         right = self.left*d
         if right != 0:
-            self.hub.move_right(right)
-        if self.hub.angle == 0:
-            self.hub.turn_left(180)
-        elif self.hub.angle == 90:
-            self.hub.turn_right(90)
+            self.move_right(right)
+        if up != 0:
+            self.move_up(up)
+        if self.angle == 0:
+            self.turn_right(180)
+        elif self.angle == 90:
+            self.turn_right(90)
         else:
-            self.hub.turn_left(90)
-        self.hub.angle = 0
+            self.turn_left(90)
+        self.angle = 0
         self.down = 0
         self.left = 0
 
@@ -199,7 +180,7 @@ def idle(robot):
         ack = None
         try:
             ack = stdin.buffer.read(4)   #robot1 waits 'ack1' and robot2 waits 'ack2'
-            robot.hub.display.icon(Icon.TRUE)
+            robot.display.icon(Icon.TRUE)
         except Exception as e:
             return True
         if ack != None:
@@ -259,4 +240,3 @@ def actionLoop():
     stdout.buffer.write(b'END')
 
 actionLoop()
-
