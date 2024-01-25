@@ -500,8 +500,8 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                 a = a_prime
                 if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                     break
-            stri = 'epochs: ' + str(m)
-            with open("./qValues.txt", "w") as values:
+            stri = 'epochs: ' + str(m) + '\n'
+            with open('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qValues.txt', "w") as values:
                 values.write(stri)
                 sQ = np.array2string(Q)
                 values.write(sQ)
