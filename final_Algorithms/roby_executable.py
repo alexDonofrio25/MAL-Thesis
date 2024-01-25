@@ -15,7 +15,7 @@ class Robot():
         self.left_motor = Motor(Port.E, Direction.COUNTERCLOCKWISE)
         self.moving_motors = DriveBase(self.left_motor, self.right_motor, wheel_diameter=88, axle_track=144.75)
         self.angle = 0
-        self.moving_motors.settings(500,250,720,360)
+        self.moving_motors.settings(800,450,720,360)
         self.down = 0
         self.left = 0
 
@@ -43,7 +43,7 @@ class Robot():
         self.moving_motors.settings(speed,acc,720,360)
 
     def resetSettings(self):
-        self.moving_motors.settings(500,250,720,360)
+        self.moving_motors.settings(800,450,720,360)
 
     def display_text(self,text):
         if isinstance(text,str) == False:
@@ -67,72 +67,76 @@ class Robot():
         self.angle = a
 
     def move_up(self,dis):
+        self.display_arrows(0)
         teta = self.moving_motors.state()[2]
         if self.angle == 0:
             self.moving_motors.turn(-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(-dis,Stop.BRAKE)
         elif self.angle == 90:
             self.turn_left(teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(-dis,Stop.BRAKE)
         elif self.angle == -90:
             self.turn_right(-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(-dis,Stop.BRAKE)
         self.angle = 0
 
     def move_down(self,dis):
+        self.display_arrows(1)
         teta = self.moving_motors.state()[2]
         if self.angle == 0:
             self.moving_motors.turn(-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
         elif self.angle == 90:
             self.turn_left(teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
         elif self.angle == -90:
             self.turn_right(-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
         self.angle = 0
 
     def move_right(self, dis):
+        self.display_arrows(3)
         teta = self.moving_motors.state()[2]
         if self.angle == 0:
             self.turn_right(90 - teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
             self.angle = 90
         elif self.angle == 90:
             self.moving_motors.turn(90-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
         elif self.angle == -90:
             self.moving_motors.turn(-90-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(-dis,Stop.BRAKE)
 
     def move_left(self, dis):
+        self.display_arrows(2)
         teta = self.moving_motors.state()[2]
         if self.angle == 0:
             self.turn_left(90 - teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
             self.angle = -90
         elif self.angle == 90:
             self.moving_motors.turn(90-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(-dis,Stop.BRAKE)
         elif self.angle == -90:
             self.moving_motors.turn(-90-teta)
-            wait(300)
+            wait(100)
             self.moving_motors.straight(dis,Stop.BRAKE)
 
     def backInTheHub(self):
         self.hub.light.on(Color.MAGENTA)
-        self.setSpeed(150,80)
+        self.setSpeed(250,180)
         #self.turn_left(180)
         i = 1
         self.moving_motors.reset()
@@ -153,7 +157,7 @@ class Robot():
                 break
             i+=0.5
         self.setSpeed(350,280)
-        self.moving_motors.straight(100)
+        self.moving_motors.straight(200)
         self.moving_motors.stop()
         self.moving_motors.reset()
 

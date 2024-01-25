@@ -252,6 +252,7 @@ def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
 
     while m<M:
         alpha = (1 - (m+1)/M)
+        #alpha = (1/(m+1))
         #alpha = 1/(m+1)
         if eps_mode == 'epochs':
             eps = (1 - m/M) ** 2
@@ -403,13 +404,13 @@ def sensitivity_analysis(n, epochs, ep_range, eps_range, greedy):
         j += 1
     plt.show()
 
-confidency_gaps(50,450,8, True)
+#confidency_gaps(50,450,8, True)
 
 ep_range = [7,8,9]
 #eps_range = ['epochs','quadratic','cubic','exponential']
 eps_range = ['epochs','trial','quadratic']
-sensitivity_analysis(30,500, ep_range, eps_range, True)
-Q, ep_rew, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(900, 7,0.9, 50, 'trial')
+#sensitivity_analysis(30,500, ep_range, eps_range, True)
+Q, ep_rew, ep_rew_g, ep_rew_a, ep_rew_ag = centralized_qlearning(410, 8,0.9, 10, 'quadratic')
 fig = plt.figure()
 ax = fig.subplots(1,1)
 ax.plot(range(0, len(ep_rew)),ep_rew, color = 'red')

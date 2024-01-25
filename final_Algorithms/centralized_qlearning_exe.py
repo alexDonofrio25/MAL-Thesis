@@ -298,7 +298,45 @@ def eps_greedy(s1, s2, Q, eps, allowed_actions):
         a = np.argmax(Q_s)
     return a
 
+async def check_color(robot, a, color):
+    if color == 'b':
+        reward = -0.1
+    elif color == 'r':
+        reward = -1.0
+        # ack robot 1
+        await robot.send_message(b'ack1')
+        undo2 = undoMove(a)
+        str2 = str(undo2)
+        await robot.send_message(bytes(str2,'utf-8'))
+        await robot.getData()
+    elif color == 'g':
+        reward = 1.0
+    return reward
+
+def collision_on_red(s1,s2,a1,a2):
+    if a1 == 0:
+        s_prime1 = s1 - 5
+    elif a1 == 1:
+        s_prime1 = s1 + 5
+    elif a1 == 2:
+        s_prime1 = s1 - 1
+    elif a1 == 3:
+        s_prime1 = s1 + 1
+    if a2 == 0:
+        s_prime2 = s2 - 5
+    elif a2 == 1:
+        s_prime2 = s2 + 5
+    elif a2 == 2:
+        s_prime2 = s2 - 1
+    elif a2 == 3:
+        s_prime2 = s2 + 1
+    if s_prime1 != s_prime2:
+        return True
+    else:
+        return False
+
 async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
+    np.set_printoptions(threshold=sys.maxsize)
     spiky = Agent('Spiky',0)
     roby = Agent('Roby',4)
     env = Environment()
@@ -308,11 +346,11 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     env._seed(seed)
     # learning parameters
     M = epochs
-    m = 0
+    m = 51
     k = ep_length # length of the episode
     # initial Q function
-    Q = np.zeros((env.nS**2,env.nA**2))
-    #Q = np.array()
+    #Q = np.zeros((env.nS**2,env.nA**2))
+    Q = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix.npy')
     # generate the two connections
     robot1 = Connection('Spiky',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
     robot2 = Connection('Roby',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
@@ -385,59 +423,126 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                         reward1 = r
                         collision_flag1 = True
                 #moving the hubs
-                if (collision_flag1 == False and collision_flag2 == False) and (target1 == False and target2 == False) and (s_prime2 != s1):
-                    # ack robot 1
-                    await robot1.send_message(b'ack1')
-                    str1 = str(a1)
-                    await robot1.send_message(bytes(str1,'utf-8'))
+                if (collision_flag1 == False and collision_flag2 == False) and (target1 == False and target2 == False) and (s_prime2 != s1) and (s_prime1 != s2):
+                    if collision_on_red(s1,s2,a1,a2):
+                        # ack robot 1
+                        await robot1.send_message(b'ack1')
+                        str1 = str(a1)
+                        await robot1.send_message(bytes(str1,'utf-8'))
+                        # ack robot 2
+                        await robot2.send_message(b'ack2')
+                        str2 = str(a2)
+                        await robot2.send_message(bytes(str2,'utf-8'))
+                        # wait the robots to finish actions
+                        await robot1.getData()
+                        await robot2.getData()
+
+                        # check colors
+                        # ack robot 1
+                        await robot1.send_message(b'ack1')
+                        str1 = str(4)
+                        await robot1.send_message(bytes(str1,'utf-8'))
+                        c1 = await robot1.getData()
+                        await robot1.getData()
+                        reward1 = await check_color(robot1, a1, c1)
+                        # ack robot 2
+                        await robot2.send_message(b'ack2')
+                        str2 = str(4)
+                        await robot2.send_message(bytes(str2,'utf-8'))
+                        c2 = await robot2.getData()
+                        await robot2.getData()
+                        reward2 = await check_color(robot2,a2,c2)
+                    else:
+                        # ack robot 1
+                        await robot1.send_message(b'ack1')
+                        str1 = str(a1)
+                        await robot1.send_message(bytes(str1,'utf-8'))
+                        # wait the robots to finish actions
+                        await robot1.getData()
+                        # check color
+                        # ack robot 1
+                        await robot1.send_message(b'ack1')
+                        str1 = str(4)
+                        await robot1.send_message(bytes(str1,'utf-8'))
+                        c1 = await robot1.getData()
+                        await robot1.getData()
+                        reward1 = await check_color(robot1, a1, c1)
+
+                        # ack robot 2
+                        await robot2.send_message(b'ack2')
+                        str2 = str(a2)
+                        await robot2.send_message(bytes(str2,'utf-8'))
+                        # wait the robots to finish actions
+                        await robot2.getData()
+                        # check color
+                        # ack robot 2
+                        await robot2.send_message(b'ack2')
+                        str2 = str(4)
+                        await robot2.send_message(bytes(str2,'utf-8'))
+                        c2 = await robot2.getData()
+                        await robot2.getData()
+                        reward2 = await check_color(robot2,a2,c2)
+                elif s_prime1 == s2 and (collision_flag1 == False and collision_flag2 == False):
                     # ack robot 2
                     await robot2.send_message(b'ack2')
                     str2 = str(a2)
                     await robot2.send_message(bytes(str2,'utf-8'))
                     # wait the robots to finish actions
-                    await robot1.getData()
                     await robot2.getData()
+                    # check color
+                    # ack robot 2
+                    await robot2.send_message(b'ack2')
+                    str2 = str(4)
+                    await robot2.send_message(bytes(str2,'utf-8'))
+                    c2 = await robot2.getData()
+                    await robot2.getData()
+                    reward2 = await check_color(robot2,a2,c2)
+
                     # ack robot 1
                     await robot1.send_message(b'ack1')
-                    #check color
+                    str1 = str(a1)
+                    await robot1.send_message(bytes(str1,'utf-8'))
+                    # wait the robots to finish actions
+                    await robot1.getData()
+                    # check color
+                    # ack robot 1
+                    await robot1.send_message(b'ack1')
                     str1 = str(4)
                     await robot1.send_message(bytes(str1,'utf-8'))
                     c1 = await robot1.getData()
                     await robot1.getData()
-                    if c1 == 'b':
-                        reward1 = -0.1
-                    elif c1 == 'r':
-                        reward1 = -1.0
-                        s_prime1 = s1
-                        spiky.set_position(s_prime1)
-                        # ack robot 1
-                        await robot1.send_message(b'ack1')
-                        undo1 = undoMove(a1)
-                        str1 = str(undo1)
-                        await robot1.send_message(bytes(str1,'utf-8'))
-                        await robot1.getData()
-                    elif c1 == 'g':
-                        reward1 = 1.0
+                    reward1 = await check_color(robot1, a1, c1)
+                elif s_prime2 == s1 and (collision_flag1 == False and collision_flag2 == False):
                     # ack robot 1
-                    await robot2.send_message(b'ack1')
+                    await robot1.send_message(b'ack1')
+                    str1 = str(a1)
+                    await robot1.send_message(bytes(str1,'utf-8'))
+                    # wait the robots to finish actions
+                    await robot1.getData()
                     #check color
+                    # ack robot 1
+                    await robot1.send_message(b'ack1')
+                    str1 = str(4)
+                    await robot1.send_message(bytes(str1,'utf-8'))
+                    c1 = await robot1.getData()
+                    await robot1.getData()
+                    reward1 = await check_color(robot1, a1, c1)
+
+                    # ack robot 2
+                    await robot2.send_message(b'ack2')
+                    str2 = str(a2)
+                    await robot2.send_message(bytes(str2,'utf-8'))
+                    # wait the robots to finish actions
+                    await robot2.getData()
+                    # check color
+                    # ack robot 2
+                    await robot2.send_message(b'ack2')
                     str2 = str(4)
                     await robot2.send_message(bytes(str2,'utf-8'))
-                    c1 = await robot2.getData()
+                    c2 = await robot2.getData()
                     await robot2.getData()
-                    if c1 == 'b':
-                        reward2 = -0.1
-                    elif c1 == 'r':
-                        reward2 = -1.0
-                        # ack robot 1
-                        await robot2.send_message(b'ack1')
-                        undo2 = undoMove(a2)
-                        str2 = str(undo2)
-                        await robot2.send_message(bytes(str2,'utf-8'))
-                        await robot2.getData()
-                    elif c1 == 'g':
-                        reward2 = 1.0
-                else:
+                    reward2 = await check_color(robot2,a2,c2)
+                else:  # collisions cases
                     if collision_flag1 != True and target1 == False:
                         # ack robot 1
                         await robot1.send_message(b'ack1')
@@ -452,44 +557,22 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                         await robot1.send_message(bytes(str1,'utf-8'))
                         c1 = await robot1.getData()
                         await robot1.getData()
-                        if c1 == 'b':
-                            reward1 = -0.1
-                        elif c1 == 'r':
-                            reward1 = -1.0
-                            # ack robot 1
-                            await robot1.send_message(b'ack1')
-                            undo1 = undoMove(a1)
-                            str1 = str(undo1)
-                            await robot1.send_message(bytes(str1,'utf-8'))
-                            await robot1.getData()
-                        elif c1 == 'g':
-                            reward1 = 1.0
+                        reward1 = await check_color(robot1, a1, c1)
                     if collision_flag2 != True and target2 == False:
-                        # ack robot 1
+                        # ack robot 2
                         await robot2.send_message(b'ack1')
                         str2 = str(a2)
                         await robot2.send_message(bytes(str2,'utf-8'))
                         # wait the robots to finish actions
                         await robot2.getData()
-                        # ack robot 1
+                        # ack robot 2
                         await robot2.send_message(b'ack1')
                         #check color
                         str2 = str(4)
                         await robot2.send_message(bytes(str2,'utf-8'))
-                        c1 = await robot2.getData()
+                        c2 = await robot2.getData()
                         await robot2.getData()
-                        if c1 == 'b':
-                            reward2 = -0.1
-                        elif c1 == 'r':
-                            reward2 = -1.0
-                            # ack robot 1
-                            await robot2.send_message(b'ack1')
-                            undo2 = undoMove(a2)
-                            str2 = str(undo2)
-                            await robot2.send_message(bytes(str2,'utf-8'))
-                            await robot2.getData()
-                        elif c1 == 'g':
-                            reward2 = 1.0
+                        reward2 = await check_color(robot2,a2,c2)
                 # Q-learning update
                 reward = np.min([reward1,reward2])
                 s_prime = tuple_to_state([s_prime1,s_prime2])
@@ -501,11 +584,7 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                 if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                     break
             stri = 'epochs: ' + str(m) + '\n'
-            with open('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qValues.txt', "w") as values:
-                values.write(stri)
-                sQ = np.array2string(Q)
-                values.write(sQ)
-                values.close()
+            np.save('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix.npy', Q)
             print(stri)
             # next iteration
             m = m + 1
