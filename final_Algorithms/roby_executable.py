@@ -56,9 +56,9 @@ class Robot():
         elif action == 1:
             self.hub.display.icon(Icon.ARROW_RIGHT)
         elif action == 2:
-            self.hub.display.icon(Icon.ARROW_DOWN)
-        elif action == 3:
             self.hub.display.icon(Icon.ARROW_UP)
+        elif action == 3:
+            self.hub.display.icon(Icon.ARROW_DOWN)
 
     def get_angle(self):
         return self.angle
@@ -135,6 +135,7 @@ class Robot():
             self.moving_motors.straight(dis,Stop.BRAKE)
 
     def backInTheHub(self):
+        self.hub.display.icon(Icon.HEART)
         self.hub.light.on(Color.MAGENTA)
         self.setSpeed(250,180)
         #self.turn_left(180)
@@ -150,6 +151,8 @@ class Robot():
                 self.moving_motors.curve(150,-5*i)
                 self.moving_motors.curve(150,10*i)
             dis = self.distance_sensor.distance()
+            if dis == 2000:
+                break
             if i > 2 and i <= 4:
                 self.moving_motors.straight(-50)
             dis = self.distance_sensor.distance()

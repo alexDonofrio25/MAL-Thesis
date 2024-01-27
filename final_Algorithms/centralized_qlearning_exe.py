@@ -346,7 +346,7 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     env._seed(seed)
     # learning parameters
     M = epochs
-    m = 51
+    m = 249
     k = ep_length # length of the episode
     # initial Q function
     #Q = np.zeros((env.nS**2,env.nA**2))
@@ -364,6 +364,9 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
         await robot2.getData()
 
         while m < M:
+            stri = 'epochs: ' + str(m) + '\n'
+            print(stri)
+
             if eps_mode == 'epochs':
                 eps = (1 - m/M) ** 2
             elif eps_mode == 'quadratic':
@@ -402,7 +405,7 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                 # collision control
                 collision_flag1 = False
                 collision_flag2 = False
-                if s_prime1 == s_prime2 or (s1 == s_prime2 and s2 == s_prime1):
+                if s_prime1 == s_prime2:
                     r = -1.0
                     # agent 1 is the master, so agent2 gets the bad reward
                     grid_flatten = env.grid.flatten()
@@ -422,6 +425,16 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                         spiky.set_position(s_prime1)
                         reward1 = r
                         collision_flag1 = True
+                if (s1 == s_prime2 and s2 == s_prime1):
+                    r = -1.0
+                    collision_flag1 = True
+                    collision_flag2 = True
+                    s_prime1 = s1
+                    spiky.set_position(s_prime1)
+                    reward1 = r
+                    s_prime2 = s2
+                    roby.set_position(s_prime2)
+                    reward2 = r
                 #moving the hubs
                 if (collision_flag1 == False and collision_flag2 == False) and (target1 == False and target2 == False) and (s_prime2 != s1) and (s_prime1 != s2):
                     if collision_on_red(s1,s2,a1,a2):
@@ -583,9 +596,6 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
                 a = a_prime
                 if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                     break
-            stri = 'epochs: ' + str(m) + '\n'
-            np.save('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix.npy', Q)
-            print(stri)
             # next iteration
             m = m + 1
             print('Comeback')
@@ -593,14 +603,12 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
             await robot1.send_message(b'ack1')
             str1 = str(7)
             await robot1.send_message(bytes(str1,'utf-8'))
-
             env.comeback(spiky,0)
             # ack robot 2
             await robot2.send_message(b'ack2')
             str2 = str(7)
             await robot2.send_message(bytes(str2,'utf-8'))
             env.comeback(roby,4)
-
             await robot1.getData()
             await robot2.getData()
             #back in the hub
@@ -616,6 +624,14 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
 
             await robot1.getData()
             await robot2.getData()
+            # save the matrix in a file
+            np.save('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix.npy', Q)
+            if (m-1)%20 == 0:
+                path = '/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/'
+                file = 'qMatrix_' + str(m-1) + '.npy'
+                complete_path = path+file
+                f = open(complete_path, 'a')
+                np.save(complete_path, Q)
         # ack robot 1
         await robot1.send_message(b'ack1')
         str1 = str(9)
