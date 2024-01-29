@@ -1,7 +1,8 @@
 import numpy as np
 import sys
 
-Q = np.random.randint((10,5))
+np.set_printoptions(threshold=sys.maxsize)
+Q = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix_340.npy')
 for i in range(0,21):
     if i%10 == 0:
         path = '/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/'

@@ -346,11 +346,11 @@ async def centralized_qlearning(epochs, ep_length, gamma, seed, eps_mode):
     env._seed(seed)
     # learning parameters
     M = epochs
-    m = 249
+    m = 341
     k = ep_length # length of the episode
     # initial Q function
     #Q = np.zeros((env.nS**2,env.nA**2))
-    Q = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix.npy')
+    Q = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/qMatrix_340.npy')
     # generate the two connections
     robot1 = Connection('Spiky',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
     robot2 = Connection('Roby',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
