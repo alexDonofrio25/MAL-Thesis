@@ -54,7 +54,6 @@ class Connection():
     async def handle_rx(self, _, data: bytearray):
         #print("Received:", data)
         d = str(data,'utf-8')
-        print(d)
         await self.queue.put((d))
 
     async def connect(self):
@@ -300,21 +299,11 @@ def collision_on_red(s1,s2,a1,a2):
         return False
 
 def update_function(Q, alpha, gamma, s, s_prime, a, r, allowed_actions,beta,xi):
+    Q_sa = Q[s,a]
     Q_sp = Q[s_prime,:].copy()
-    s1_p = int(s_prime/25)
-    s2_p = int(s_prime%25)
-    actions1 = np.where(allowed_actions[s1_p])
-    actions2 = np.where(allowed_actions[s2_p])
-    actions1 = actions1[0] # just keep the indices of the allowed actions
-    actions2 = actions2[0]
-    i = 0
-    for qs in Q_sp:
-        a1 = int(i/4)
-        a2 = int(i%4)
-        if (a1 not in actions1) or (a2 not in actions2):
-            Q_sp[i] = -np.inf
-        i+=1
-    Q[s,a] = Q[s,a] + alpha * np.min([beta/xi,1]) (r + (gamma * np.max(Q_sp)) - Q[s,a])
+    Q_sp[allowed_actions[s_prime] == 0] = - np.inf
+    Q_sa1 = Q_sa + alpha * np.min([beta/xi,1])*(r + (gamma * np.max(Q_sp)) - Q_sa)
+    Q[s,a] = Q_sa1
     return Q
 
 async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
@@ -331,14 +320,14 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
     env2._seed(seed2)
     # learning parameters
     M = epochs
-    m = 0
+    m = 51
     #m=45
     k = ep_length # length of the episode
     # initial Q function
-    Q1 = np.zeros((env1.nS,env1.nA))
-    Q2 = np.zeros((env2.nS,env2.nA))
-    #Q1 = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/faqQ1.npy')
-    #Q2 = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/faqQ2.npy')
+    #Q1 = np.zeros((env1.nS,env1.nA))
+    #Q2 = np.zeros((env2.nS,env2.nA))
+    Q1 = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/faqQ1.npy')
+    Q2 = np.load('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/faqQ2.npy')
 
     # generate the two connections
     robot1 = Connection('Spiky',"6E400001-B5A3-F393-E0A9-E50E24DCCA9E","6E400002-B5A3-F393-E0A9-E50E24DCCA9E", "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
@@ -353,6 +342,8 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
         await robot2.getData()
 
         while m < M:
+            print('epochs ', m)
+
             if eps_mode == 'epochs':
                 eps = (1 - m/M) ** 2
             elif eps_mode == 'quadratic':
@@ -592,7 +583,6 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
                 a2 = a_prime2
                 if (s1 == 17 or s1 == 22) and (s2 == 17 or s2 == 22):
                     break
-            print('epochs ', m)
             # next iteration
             m = m + 1
             print('Comeback')
@@ -633,8 +623,8 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
             np.save('/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/faqQ2.npy', Q2)
             if (m-1)%20 == 0:
                 path = '/Users/alessandrodonofrio/Desktop/Spike Prime Python/final_Algorithms/'
-                file1 = 'faqQ1' + str(m-1) + '.npy'
-                file2 = 'faqQ2' + str(m-1) + '.npy'
+                file1 = 'faqQ1_' + str(m-1) + '.npy'
+                file2 = 'faqQ2_' + str(m-1) + '.npy'
                 complete_path1 = path+file1
                 complete_path2 = path+file2
                 f1 = open(complete_path1, 'a')
@@ -658,4 +648,4 @@ async def faq_learning(epochs, ep_length, beta, gamma, seed1, seed2, eps_mode):
         await robot2.disconnect()
     return Q1,Q2
 
-asyncio.run(faq_learning(80,7,0.6,0.9,1,101,'quadratic'))
+asyncio.run(faq_learning(110,7,0.6,0.9,1,101,'quadratic'))

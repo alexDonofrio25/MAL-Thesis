@@ -509,7 +509,7 @@ def repetition_controls(n, epochs, ep, beta, eps, greedy):
     plt.show()
     return rews, g_rews
 
-
+tuple = faq_learning(110,7,0.6,0.9,1,101,'quadratic')
 confidency_gaps(100,180,7,0.6,True)
 rew, rew_g = repetition_controls(100,180,7,0.6,'cubic',True)
 #print(rew[:,:,199])

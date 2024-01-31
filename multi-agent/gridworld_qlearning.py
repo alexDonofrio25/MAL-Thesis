@@ -95,7 +95,7 @@ def eps_greedy(s, Q, eps, allowed_actions):
     a = np.argmax(Q_s)
   return a
 
-def multi_agent_qlearning(epochs, ep_length, gamma, seed1, seed2):
+def multi_agent_qlearning(epochs, ep_length, gamma, seed1, seed2, eps_mode):
     spiky = Agent('Spiky',0)
     roby = Agent('Roby',4)
     collisions = []
@@ -115,11 +115,20 @@ def multi_agent_qlearning(epochs, ep_length, gamma, seed1, seed2):
 
     # Keeps track of useful statistics
     episodes_reward = np.zeros((2,epochs))
+    joint_episodes_reward = np.zeros(epochs)
 
     while m<M:
         print('iteretion n.',m)
         alpha = (1 - m/M)
-        eps = (1 - m/M) ** 2
+
+        if eps_mode == 'epochs':
+            eps = (1 - m/M) ** 2
+        elif eps_mode == 'quadratic':
+            eps = (1/(m+1))**2
+        elif eps_mode == 'cubic':
+            eps = (1/(m+1))**3
+        elif eps_mode == 'trial':
+            eps = (1/(m+1))**(2/3)
         # initial state and action
         s1 = spiky.get_position()
         s2 = roby.get_position()
@@ -138,8 +147,10 @@ def multi_agent_qlearning(epochs, ep_length, gamma, seed1, seed2):
             a_prime1 = eps_greedy(s_prime1,Q1,eps, env1.allowed_actions)
             a_prime2 = eps_greedy(s_prime2,Q2,eps, env2.allowed_actions)
             # Update stats
+            reward = np.min([reward1,reward2])
             episodes_reward[0,m] += reward1
             episodes_reward[1,m] += reward2
+            joint_episodes_reward[m] += reward
             # Q-learning update
             Q1[s1, a1] = Q1[s1, a1] + alpha * (reward1 + gamma * np.max(Q1[s_prime1, :]) - Q1[s1, a1])
             s1 = s_prime1
@@ -159,7 +170,7 @@ def multi_agent_qlearning(epochs, ep_length, gamma, seed1, seed2):
         print(Q2)
         print('----------------------------------------------')
         print(collisions)
-    return Q1,Q2,episodes_reward
+    return Q1,Q2,episodes_reward,joint_episodes_reward
 
 #q1,q2,ep_rewards = multi_agent_qlearning(epochs=200,ep_length=7,gamma=0.9)
 fig, ax= plt.subplots()
@@ -170,29 +181,39 @@ ax.set_ylabel('reward')
 fig1, ax1 = plt.subplots()
 #fig1.show()
 
-def confidency_gaps(n):
-    rews = np.zeros((n, 2, 200))
+def confidency_gaps(n, epochs, ok = False):
+    rews = np.zeros((n, 2, epochs))
+    jrews = np.zeros((n, epochs))
     for i in range(0,n):
         # ogni esperimento è eseguito con seed diversi
-        Q1,Q2, ep_reward= multi_agent_qlearning(epochs=200, ep_length=7, gamma=0.9, seed1=i, seed2= i + 3)
+        Q1,Q2, ep_reward, joint_ep_reward = multi_agent_qlearning(epochs=epochs, ep_length=7, gamma=0.9, seed1=i, seed2= i + n,eps_mode='quadratic')
         # ep_reward matrice 2xM dove M sono le epoche, contiene il reward totale per ogni episodio
-        rews[i] = ep_reward
-    mean = np.mean(rews, axis=0)
-    std = np.std(rews, axis=0)/n
+        jrews[i] = joint_ep_reward
+    mean = np.mean(jrews, axis=0)
+    std = np.std(jrews, axis=0)/np.sqrt(n)
+    if ok:
+        fig, axs = plt.subplots(nrows=1,ncols=2, figsize=(15, 5))
+        axs[0].set_title('Agent 1')
+        axs[1].set_title('Agent 2')
+        axs[0].plot(mean[0,:], color='blue')
+        axs[0].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
+        axs[1].plot(mean[1,:], color='red')
+        axs[1].fill_between(range(0,len(mean[0,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
+        axs[0].set_xlabel('Epochs')
+        axs[1].set_xlabel('Epochs')
+        axs[0].set_ylabel('Rewards')
+        axs[1].set_ylabel('Rewards')
+        axs[0].set_xticks(np.arange(0,epochs+1,50))
+        axs[1].set_xticks(np.arange(0,epochs+1,50))
+        plt.show()
+    else:
+        fig, axs = plt.subplots(nrows=1,ncols=1, figsize=(15, 5))
+        axs.set_title('Joint Reward for Multi-Agent Q-Learning')
+        axs.plot(mean, color='blue')
+        axs.fill_between(range(0,len(mean)), (mean - std), (mean + std), alpha = .3)
+        axs.set_xlabel('Epochs')
+        axs.set_ylabel('Rewards')
+        axs.set_xticks(np.arange(0,epochs+1,50))
+        plt.show()
 
-    fig, axs = plt.subplots(nrows=1,ncols=2, figsize=(15, 5))
-    axs[0].set_title('Agent 1')
-    axs[1].set_title('Agent 2')
-    axs[0].plot(mean[0,:], color='blue')
-    axs[0].fill_between(range(0,len(mean[0,:])), (mean[0,:] - std[0,:]), (mean[0,:] + std[0,:]), alpha = .3)
-    axs[1].plot(mean[1,:], color='red')
-    axs[1].fill_between(range(0,len(mean[0,:])), (mean[1,:] - std[1,:]), (mean[1,:] + std[1,:]), alpha = .3, color='red')
-    axs[0].set_xlabel('Epochs')
-    axs[1].set_xlabel('Epochs')
-    axs[0].set_ylabel('Rewards')
-    axs[1].set_ylabel('Rewards')
-    axs[0].set_xticks(np.arange(0,201,50))
-    axs[1].set_xticks(np.arange(0,201,50))
-    plt.show()
-
-confidency_gaps(100)
+confidency_gaps(100,110)
